@@ -8,8 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4e54c8">
 
-    <link rel="stylesheet" href="style.css?v=1.8"> 
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=1.9"> <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="quiz-container">
@@ -26,7 +25,7 @@
             
             <div class="results-divider"></div>
 
-            <h3 class="admin-section-title">👨‍🎓 الطلاب المسجلون</h3>
+            <h3 class="admin-section-title">👨‍🎓 الطلاب المسجلون (اضغط على الاسم لرؤية التفاصيل)</h3>
             <div class="admin-table-container" id="students-container">
                 <p class="dashboard-empty-state">جاري تحميل قائمة الطلاب...</p>
             </div>
@@ -39,9 +38,26 @@
             </div>
 
         </div>
-        
     </div>
 
-   <script src="control_panel.js?v=1.0.0"></script>
-</body>
+    <div id="student-modal" class="admin-modal">
+        <div class="admin-modal-content">
+            <span class="admin-modal-close" id="modal-close-btn">&times;</span>
+            <h3 id="modal-student-name">جاري تحميل...</h3>
+            
+            <div class="results-divider"></div>
+            
+            <h4>📈 إحصائيات الطالب</h4>
+            <div id="modal-stats-container">
+                </div>
+            
+            <div class="results-divider"></div>
+            
+            <h4>📚 سجل الاختبارات</h4>
+            <div class="admin-table-container" id="modal-results-container">
+                </div>
+        </div>
+    </div>
+
+    <script src="control_panel.js?v=1.1.0"></script> </body>
 </html>
