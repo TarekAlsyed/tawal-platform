@@ -1,24 +1,26 @@
 /*
  * Service Worker (sw.js) for Tawal Academy
- * v1.22 (Cache Busting v22 - Renamed Admin to Control Panel)
+ * v1.23 (Cache Busting v23 - Add Student Modal)
  */
 
-const CACHE_NAME = 'tawal-academy-cache-v22'; // (تغيير هام لإجبار التحديث)
+const CACHE_NAME = 'tawal-academy-cache-v23'; // (تغيير هام لإجبار التحديث)
 const DATA_CACHE_NAME = 'tawal-data-cache-v10';
 const FONT_CACHE = 'tawal-fonts-cache-v1';
 
-const BASE_PATH = '/quiz-project2/'; 
+const BASE_PATH = '/quiz-project2/'; // (ملاحظة: هذا هو المسار لمشروعك الأصلي)
+// (إذا كنت تستخدم tawal-platform، يجب تغيير BASE_PATH)
+// const BASE_PATH = '/tawal-platform/'; 
 
-// (تغيير هام) تحديث أسماء الملفات
+// (تغيير هام) تحديث إصدارات الملفات
 const CORE_FILES_TO_CACHE = [
     `${BASE_PATH}index.html`,
     `${BASE_PATH}quiz.html`,
     `${BASE_PATH}summary.html`,
     `${BASE_PATH}dashboard.html`,
-    `${BASE_PATH}control_panel.html`,   // (جديد)
-    `${BASE_PATH}style.css?v=1.8`, 
+    `${BASE_PATH}control_panel.html`,
+    `${BASE_PATH}style.css?v=1.9`,       // (تحديث الإصدار)
     `${BASE_PATH}app.js?v=10.0.0`,
-    `${BASE_PATH}control_panel.js?v=1.0.0` // (جديد)
+    `${BASE_PATH}control_panel.js?v=1.1.0` // (تحديث الإصدار)
 ];
 
 const FONT_URL = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap';
@@ -28,7 +30,7 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         Promise.all([
             caches.open(CACHE_NAME).then((cache) => {
-                console.log('SW: Caching core files (v22)...');
+                console.log('SW: Caching core files (v23)...');
                 return cache.addAll(CORE_FILES_TO_CACHE);
             }),
             caches.open(FONT_CACHE).then((cache) => {
@@ -44,7 +46,7 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
-                    // سيقوم بحذف كل الكاش القديم (v21, v20... إلخ)
+                    // سيقوم بحذف كل الكاش القديم (v22, v21... إلخ)
                     if (cacheName !== CACHE_NAME && cacheName !== FONT_CACHE && cacheName !== DATA_CACHE_NAME) {
                         console.log('SW: Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
