@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم | Tawal Academy</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4e54c8">
+
+    <link rel="stylesheet" href="style.css?v=1.8"> 
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="quiz-container">
+        <div class="quiz-header">
+            <a href="index.html" class="home-link" aria-label="العودة للرئيسية">🏠</a>
+            <h2>📊 لوحة تحكم الإدارة</h2>
+        </div>
+
+        <div class="dashboard-body" id="dashboard-content">
+            
+            <div id="stats-container">
+                <p class="dashboard-empty-state">جاري تحميل الإحصائيات العامة...</p>
+            </div>
+            
+            <div class="results-divider"></div>
+
+            <h3 class="admin-section-title">👨‍🎓 الطلاب المسجلون</h3>
+            <div class="admin-table-container" id="students-container">
+                <p class="dashboard-empty-state">جاري تحميل قائمة الطلاب...</p>
+            </div>
+
+            <div class="results-divider"></div>
+
+            <h3 class="admin-section-title">🕒 سجلات الدخول الأخيرة</h3>
+            <div class="admin-table-container" id="logs-container">
+                <p class="dashboard-empty-state">جاري تحميل سجلات الدخول...</p>
+            </div>
+
+        </div>
+        
+    </div>
+
+    <script src="admin.js?v=1.0.0"></script> 
+</body>
+</html>
