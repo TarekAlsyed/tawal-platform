@@ -1,0 +1,16 @@
+{
+  "title": "ملخص الخرائط الجيولوجية",
+  "files": [
+    {
+      "name": "Map 1",
+      "path": "pdf/geo_maps/1.pdf",
+      "type": "pdf"
+    },
+    {
+      "name": "تعريفات وخرائط",
+      "path": "pdf/geo_maps/2.pdf",
+      "type": "pdf"
+    }
+  ],
+  "images": []
+}
