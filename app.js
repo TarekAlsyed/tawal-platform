@@ -1,15 +1,15 @@
 /*
- * app.js - Tawal Academy (v10.3.0 - Hybrid Login)
- * - (جديد) دمج نظام تسجيل الطلاب (أول مرة) مع سؤال الدخول (كل مرة).
- * - إعادة إضافة دالة checkAccessPermission (هل صليت...)
+ * app.js - Tawal Academy (v10.4.0 - Force Re-Login v3)
+ * - (تعديل) تغيير مفتاح localStorage لإجبار جميع المستخدمين على إعادة التسجيل (v3).
+ * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
  */
 
 /* =======================
    إعدادات الاتصال بالخادم
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-// (مفتاح التسجيل v2)
-let STUDENT_ID = localStorage.getItem('tawal_studentId_v2');
+// (*** تعديل v10.4.0: تغيير المفتاح لإجبار إعادة التسجيل ***)
+let STUDENT_ID = localStorage.getItem('tawal_studentId_v3');
 
 /* =======================
    إعدادات ومفاتيح التخزين
@@ -161,7 +161,7 @@ function loadSubjectData(subjectKey) {
 function $(id) { return document.getElementById(id); }
 
 /* =======================
-   (*** جديد v10.3.0: دالة سؤال الدخول القديمة ***)
+   (دالة سؤال الدخول - v10.3.0)
    ======================= */
 function checkAccessPermission(pageType = 'المحتوى') {
     
@@ -198,7 +198,7 @@ function checkAccessPermission(pageType = 'المحتوى') {
 
 
 /* =======================
-   (نظام التسجيل v10.2.0)
+   (نظام التسجيل - v10.4.0)
    ======================= */
 async function registerStudent() {
     const name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء إدخال اسمك (لربط نتائجك به):');
@@ -224,8 +224,9 @@ async function registerStudent() {
         if (data.id) {
             // نجح التسجيل
             STUDENT_ID = data.id;
-            localStorage.setItem('tawal_studentId_v2', data.id);
-            localStorage.setItem('tawal_studentName_v2', data.name);
+            // (*** تعديل v10.4.0: استخدام المفتاح الجديد ***)
+            localStorage.setItem('tawal_studentId_v3', data.id);
+            localStorage.setItem('tawal_studentName_v3', data.name);
             alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
             return true;
         } else if (data.error && data.error.includes('UNIQUE')) {
