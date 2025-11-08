@@ -8,7 +8,8 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4e54c8">
 
-    <link rel="stylesheet" href="style.css?v=1.9"> <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=1.9">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="quiz-container">
@@ -28,6 +29,13 @@
             <h3 class="admin-section-title">👨‍🎓 الطلاب المسجلون (اضغط على الاسم لرؤية التفاصيل)</h3>
             <div class="admin-table-container" id="students-container">
                 <p class="dashboard-empty-state">جاري تحميل قائمة الطلاب...</p>
+            </div>
+
+            <div class="results-divider"></div>
+
+            <h3 class="admin-section-title">🏃‍♂️ أحدث أنشطة الطلاب (آخر 20 نشاط)</h3>
+            <div class="admin-table-container" id="activity-logs-container">
+                <p class="dashboard-empty-state">جاري تحميل سجل الأنشطة...</p>
             </div>
 
             <div class="results-divider"></div>
@@ -56,8 +64,13 @@
             <h4>📚 سجل الاختبارات</h4>
             <div class="admin-table-container" id="modal-results-container">
                 </div>
+
+            <div class="results-divider"></div>
+            <h4>🏃‍♂️ سجل أنشطة الطالب</h4>
+            <div class="admin-table-container" id="modal-activity-container">
+                </div>
         </div>
     </div>
 
-    <script src="control_panel.js?v=1.1.0"></script> </body>
+    <script src="control_panel.js?v=1.2.0"></script> </body>
 </html>
