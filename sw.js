@@ -1,9 +1,9 @@
 /*
  * Service Worker (sw.js) for Tawal Academy
- * v1.24 (Cache Busting v24 - Add Activity Logging)
+ * v1.25 (Cache Busting v25 - Add Activity Logs to Admin)
  */
 
-const CACHE_NAME = 'tawal-academy-cache-v24'; // (تغيير هام لإجبار التحديث)
+const CACHE_NAME = 'tawal-academy-cache-v25'; // (تغيير هام لإجبار التحديث)
 const DATA_CACHE_NAME = 'tawal-data-cache-v10';
 const FONT_CACHE = 'tawal-fonts-cache-v1';
 
@@ -16,10 +16,10 @@ const CORE_FILES_TO_CACHE = [
     `${BASE_PATH}quiz.html`,
     `${BASE_PATH}summary.html`,
     `${BASE_PATH}dashboard.html`,
-    `${BASE_PATH}control_panel.html`,
-    `${BASE_PATH}style.css?v=1.9`, 
-    `${BASE_PATH}app.js?v=10.1.0`,       // (تحديث الإصدار)
-    `${BASE_PATH}control_panel.js?v=1.1.0`
+    `${BASE_PATH}control_panel.html?v=1.1.0`, // (تحديث الإصدار)
+    `${BASE_PATH}style.css?v=1.9`,
+    `${BASE_PATH}app.js?v=10.1.0`,
+    `${BASE_PATH}control_panel.js?v=1.2.0` // (تحديث الإصدار)
 ];
 
 const FONT_URL = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap';
@@ -29,7 +29,7 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         Promise.all([
             caches.open(CACHE_NAME).then((cache) => {
-                console.log('SW: Caching core files (v24)...');
+                console.log('SW: Caching core files (v25)...');
                 return cache.addAll(CORE_FILES_TO_CACHE);
             }),
             caches.open(FONT_CACHE).then((cache) => {
@@ -45,7 +45,7 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
-                    // سيقوم بحذف كل الكاش القديم (v23, v22... إلخ)
+                    // سيقوم بحذف كل الكاش القديم (v24, v23... إلخ)
                     if (cacheName !== CACHE_NAME && cacheName !== FONT_CACHE && cacheName !== DATA_CACHE_NAME) {
                         console.log('SW: Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
