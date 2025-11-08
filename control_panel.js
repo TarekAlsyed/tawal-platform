@@ -1,13 +1,12 @@
 /*
- * admin.js - Tawal Academy (v1.0.0)
+ * control_panel.js - Tawal Academy (v1.0.1 - Password Update)
  * لوحة تحكم الإدارة
  */
 
 // (هام) الرابط الخاص بالخادم الذي قمنا بنشره
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-// (هام) كلمة سر الإدارة
-// يمكنك تغيير 'admin123' إلى أي كلمة سر تريدها
+// (*** تعديل: كلمة السر الجديدة الخاصة بك ***)
 const ADMIN_PASSWORD = 'T357891$';
 
 /**
