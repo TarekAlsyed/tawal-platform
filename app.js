@@ -1,10 +1,7 @@
 /*
- * app.js - Tawal Academy (v10.0.0 - Backend Integration)
- * - (تعديل جذري) ربط المنصة بالواجهة الخلفية (server.js).
- * - إضافة نظام تسجيل الطلاب (الاسم والبريد الإلكتروني).
- * - استبدال localStorage بحفظ النتائج على الخادم.
- * - استبدال لوحة التقدم لتقرأ الإحصائيات من الخادم.
- * - إزالة نظام كلمة السر القديم.
+ * app.js - Tawal Academy (v10.1.0 - Activity Logging)
+ * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
+ * - (تعديل) استدعاء logActivity عند الضغط على أزرار التبويب في initSummaryPage.
  */
 
 /* =======================
@@ -16,7 +13,7 @@ let STUDENT_ID = localStorage.getItem('tawal_studentId');
 /* =======================
    إعدادات ومفاتيح التخزين
    ======================= */
-const PROGRESS_KEY = 'tawalAcademyProgress_v1'; // (سيظل موجوداً كنسخة احتياطية مؤقتة)
+const PROGRESS_KEY = 'tawalAcademyProgress_v1';
 const DEFAULT_SUBJECT = 'gis_networks';
 
 const LOGO_SVG = `
@@ -74,6 +71,31 @@ function getSubjectKey() {
 }
 
 /* =======================
+   (*** تعديل v10.1.0: دالة تسجيل النشاط الجديدة ***)
+   ======================= */
+function logActivity(activityType, subjectName = null) {
+    if (!STUDENT_ID) return; // لا تسجل أي شيء إذا لم يكن الطالب مسجلاً
+
+    fetch(`${API_URL}/log-activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            studentId: STUDENT_ID,
+            activityType: activityType,
+            subjectName: subjectName
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.id) {
+            console.log(`✓ تم تسجيل النشاط: ${activityType}`);
+        }
+    })
+    .catch(err => console.error('فشل تسجيل النشاط:', err));
+    // (لا ننتظر الرد، ليكمل في الخلفية)
+}
+
+/* =======================
    (*** تعديل v10.0.0: دالة حفظ النتائج الجديدة ***)
    ======================= */
 function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
@@ -115,19 +137,16 @@ function loadSubjectData(subjectKey) {
             return;
         }
 
-        // (تعديل) المسار أصبح يشير إلى المجلد الفرعي الذي أنشأته
         const quizUrl = `data_${subjectKey}/data_${subjectKey}_quiz.json?v=${Date.now()}`;
         const summaryUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
 
-        // محاولة جلب ملف الأسئلة، أو إرجاع كائن فارغ إذا فشل (مثل 404)
         const fetchQuiz = fetch(quizUrl)
-            .then(response => response.ok ? response.json() : {}) // إذا كان 404، أرجع {}
+            .then(response => response.ok ? response.json() : {})
             .catch(error => {
                 console.warn(`Could not load quiz file for ${subjectKey}:`, error.message);
-                return {}; // إرجاع كائن فارغ عند فشل الشبكة
+                return {};
             });
 
-        // محاولة جلب ملف الملخص، أو إرجاع كائن فارغ إذا فشل
         const fetchSummary = fetch(summaryUrl)
             .then(response => response.ok ? response.json() : {})
             .catch(error => {
@@ -135,13 +154,11 @@ function loadSubjectData(subjectKey) {
                 return {};
             });
 
-        // انتظار اكتمال الطلبين (حتى لو فشلا)
         Promise.all([fetchQuiz, fetchSummary])
             .then(results => {
                 const quizData = results[0];
                 const summaryData = results[1];
 
-                // دمج النتائج في الهيكل الذي يتوقعه التطبيق
                 const combinedData = {
                     quizData: quizData,
                     summaryData: summaryData
@@ -150,7 +167,6 @@ function loadSubjectData(subjectKey) {
                 resolve(combinedData);
             })
             .catch(error => {
-                // هذا الخطأ لا يفترض أن يحدث لأننا نعالج الأخطاء الفردية
                 console.error(`Unexpected error loading data for ${subjectKey}:`, error);
                 reject(error);
             });
@@ -172,7 +188,6 @@ async function registerStudent() {
 
     if (!name || !email) {
         alert('يجب إدخال الاسم والبريد الإلكتروني للمتابعة.');
-        // إخفاء المحتوى بالكامل في حالة الرفض
         const quizContainer = document.querySelector('.quiz-container');
         const mainContainer = document.querySelector('.main-container');
         if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>الوصول مرفوض</h2></div>`;
@@ -196,10 +211,8 @@ async function registerStudent() {
             alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
             return true;
         } else if (data.error && data.error.includes('UNIQUE')) {
-            // البريد مسجل، سنحاول جلب بياناته
-            // (ملاحظة: هذا يتطلب endpoint جديد في الخادم، لكننا سنتجاوزه الآن ونسجل دخوله)
             alert(`أهلاً بعودتك يا ${name}! يبدو أنك مسجل بالفعل.`);
-            // (يجب إضافة دالة لجلب الـ ID من الإيميل، لكننا سنطلب منه التسجيل باسم مختلف مؤقتاً)
+            // (مستقبلاً: يجب جلب الـ ID من الإيميل)
             // لإعادة المحاولة
             return await registerStudent(); 
         } else {
@@ -224,7 +237,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!STUDENT_ID) {
         const success = await registerStudent();
         if (!success) {
-            // إيقاف تحميل الصفحة إذا فشل التسجيل
             return;
         }
     } else {
@@ -234,12 +246,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ studentId: STUDENT_ID })
         });
-        // (لا نحتاج لانتظار الرد، ليكمل في الخلفية)
     }
     
-    // (*** نهاية التعديل ***)
-
-
     // detect page by presence of elements
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
@@ -288,13 +296,11 @@ async function initIndexPage() {
     if (!grid) return;
     grid.innerHTML = '';
     
-    // (جديد) تحميل اللوجو في Header
     const logoEl = document.querySelector('.main-header .logo');
     if(logoEl) {
         logoEl.innerHTML = LOGO_SVG;
     }
     
-    // 1. عرض كل البطاقات (كلها معطلة افتراضياً)
     for (const key in SUBJECTS) {
         const s = SUBJECTS[key];
         const card = document.createElement('div');
@@ -312,7 +318,6 @@ async function initIndexPage() {
         grid.appendChild(card);
     }
     
-    // 2. (جديد) تحميل البيانات وتفعيل الأزرار المتاح لها محتوى
     const allCards = grid.querySelectorAll('.subject-card');
 
     for (const card of allCards) {
@@ -323,7 +328,6 @@ async function initIndexPage() {
     }
 
 
-    // 3. تفعيل منطق البحث
     const searchBar = $('search-bar');
     const noResultsEl = $('no-results-message');
 
@@ -364,7 +368,6 @@ async function loadAndEnableCard(key, cardElement) {
         const quizBtn = cardElement.querySelector('.btn-quiz');
         const summaryBtn = cardElement.querySelector('.btn-summary');
 
-        // 1. التحقق من بيانات الاختبار (data.quizData الآن هو الملف _quiz.json)
         if (data && data.quizData && data.quizData.questions && data.quizData.questions.length > 0) {
             if(quizBtn) {
                 quizBtn.classList.remove('disabled');
@@ -372,8 +375,6 @@ async function loadAndEnableCard(key, cardElement) {
                 quizBtn.setAttribute('aria-disabled', 'false');
             }
         }
-        
-        // 2. التحقق من بيانات الملخص (data.summaryData الآن هو الملف _summary.json)
         
         const hasNewFiles = data && data.summaryData && data.summaryData.files && data.summaryData.files.length > 0;
         const hasNewImages = data && data.summaryData && data.summaryData.images && data.summaryData.images.length > 0;
@@ -394,7 +395,7 @@ async function loadAndEnableCard(key, cardElement) {
 
 
 /* =======================
-   Summary page (*** تعديل v10.0.0: إزالة كلمة السر ***)
+   Summary page (*** تعديل v10.1.0: إضافة تسجيل النشاط ***)
    ======================= */
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
@@ -420,7 +421,8 @@ async function initSummaryPage(subjectKey) {
         const data = await loadSubjectData(subjectKey); 
         
         if (data && data.summaryData && data.summaryData.title) {
-            if (titleEl) titleEl.innerText = data.summaryData.title || SUBJECTS[subjectKey].title;
+            const subjectTitle = data.summaryData.title || SUBJECTS[subjectKey].title;
+            if (titleEl) titleEl.innerText = subjectTitle;
             
             const backBtn = document.createElement('a');
             backBtn.href = 'index.html';
@@ -435,7 +437,7 @@ async function initSummaryPage(subjectKey) {
             if (hasFiles || hasImages) {
                 if (tabsContainer) tabsContainer.style.display = 'flex';
 
-                // ملء الملفات (PDF/Word)
+                // ملء الملفات
                 if (hasFiles) {
                     let filesHtml = '<ul class="file-download-list">';
                     data.summaryData.files.forEach(file => {
@@ -477,6 +479,7 @@ async function initSummaryPage(subjectKey) {
                 if (filesContentEl) filesContentEl.appendChild(backBtn.cloneNode(true));
                 if (imagesContentEl) imagesContentEl.appendChild(backBtn.cloneNode(true));
             
+                // (*** تعديل v10.1.0: تسجيل النشاط ***)
                 // ربط أزرار التبويب
                 if (filesTab) {
                     filesTab.addEventListener('click', () => {
@@ -484,6 +487,8 @@ async function initSummaryPage(subjectKey) {
                         imagesContentEl.style.display = 'none';
                         filesTab.classList.add('active');
                         imagesTab.classList.remove('active');
+                        // تسجيل النشاط
+                        logActivity('Viewed Summary Files', subjectTitle);
                     });
                 }
                 if (imagesTab) {
@@ -492,20 +497,29 @@ async function initSummaryPage(subjectKey) {
                         imagesContentEl.style.display = 'block';
                         filesTab.classList.remove('active');
                         imagesTab.classList.add('active');
+                        // تسجيل النشاط
+                        logActivity('Viewed Image Gallery', subjectTitle);
                     });
                 }
                 
+                // تحديد التبويب الافتراضي وتسجيل أول نشاط
                 if (hasFiles) {
-                    filesTab.click();
+                    filesTab.click(); 
                 } else if (hasImages) {
                     imagesTab.click();
                 }
+                // (*** نهاية التعديل ***)
+
 
             } else if (hasOldContent) {
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
+                
                 if (filesContentEl) filesContentEl.innerHTML = data.summaryData.content;
                 if (filesContentEl) filesContentEl.appendChild(backBtn);
+                // (*** تعديل v10.1.0: تسجيل النشاط للمحتوى القديم ***)
+                logActivity('Viewed Summary (Old)', subjectTitle);
+
             } else {
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
@@ -667,6 +681,10 @@ async function initQuizPage(subjectKey) {
             if (quizFooter) quizFooter.style.display = 'none';
             return;
         }
+        
+        // (*** تعديل v10.1.0: تسجيل نشاط بدء الاختبار ***)
+        logActivity('Started Quiz', quizObj.title || SUBJECTS[subjectKey].title);
+        
         runQuizEngine(quizObj, subjectKey);
 
     } catch (e) {
@@ -699,19 +717,13 @@ function runQuizEngine(quizObj, subjectKey) {
     let questionsShuffled = [...allQuestions].sort(() => Math.random() - 0.5);
     let currentIndex = 0;
     
-    // (مهم) نحتفظ بالنظامين: النقاط والعدد
     let totalScore = 0; 
     let correctCount = 0; 
-    
     let incorrectList = []; 
-    
-    // متغير لحساب وقت الإجابة
     let questionStartTime = 0;
 
-    // عرض عنوان الاختبار
     if (quizTitleEl) quizTitleEl.innerText = quizObj.title || SUBJECTS[subjectKey]?.title || 'اختبار';
 
-    // دالة بدء الاختبار مع خيار مصفوفة أسئلة مخصصة
     function startQuiz(questionsToUse = allQuestions) {
         const isReviewMode = questionsToUse !== allQuestions;
 
@@ -740,8 +752,6 @@ function runQuizEngine(quizObj, subjectKey) {
         loadQuestion();
     }
 
-
-    // تحميل سؤال
     function loadQuestion() {
         resetState();
         const currentQuestion = questionsShuffled[currentIndex];
@@ -756,7 +766,6 @@ function runQuizEngine(quizObj, subjectKey) {
             progressBar.style.width = `${percent}%`;
         }
 
-        // TF
         if (currentQuestion.type === 'tf') {
             if (tfContainer) {
                 tfContainer.style.display = 'flex';
@@ -769,8 +778,6 @@ function runQuizEngine(quizObj, subjectKey) {
                 });
             }
             if (mcContainer) mcContainer.style.display = 'none';
-
-        // MC
         } else if (currentQuestion.type === 'mc') {
             if (mcContainer) {
                 mcContainer.style.display = 'flex';
@@ -790,19 +797,13 @@ function runQuizEngine(quizObj, subjectKey) {
                 });
             }
             if (tfContainer) tfContainer.style.display = 'none';
-        } else {
-            if (tfContainer) tfContainer.style.display = 'none';
-            if (mcContainer) mcContainer.style.display = 'none';
         }
 
         if (feedbackEl) { feedbackEl.innerText = ''; feedbackEl.className = 'feedback'; }
         if (nextBtn) nextBtn.disabled = true;
-
-        // بدء عداد الوقت للسؤال
         questionStartTime = Date.now();
     }
 
-    // إعادة ضبط الستايلات والأزرار
     function resetState() {
         if (tfContainer) {
             const tfBtns = tfContainer.querySelectorAll('.option-btn');
@@ -814,7 +815,6 @@ function runQuizEngine(quizObj, subjectKey) {
         }
     }
 
-    // معالجة اختيار TF
     function handleSelectTF(btn) {
         const val = String(btn.dataset.answer).toLowerCase() === 'true';
         const cq = questionsShuffled[currentIndex];
@@ -822,7 +822,6 @@ function runQuizEngine(quizObj, subjectKey) {
         finalizeAnswer(btn, val === correctNormalized);
     }
 
-    // معالجة اختيار MC
     function handleSelectMC(btn) {
         const sel = Number.isNaN(parseInt(btn.dataset.index, 10)) ? null : parseInt(btn.dataset.index, 10);
         const cq = questionsShuffled[currentIndex];
@@ -830,7 +829,6 @@ function runQuizEngine(quizObj, subjectKey) {
         finalizeAnswer(btn, sel === correct);
     }
 
-    // إنهاء تعامل الإجابة
     function finalizeAnswer(buttonClicked, isCorrect) {
         const allBtns = document.querySelectorAll('.option-btn');
         allBtns.forEach(b => b.disabled = true);
@@ -839,22 +837,19 @@ function runQuizEngine(quizObj, subjectKey) {
         const timeTakenInSeconds = (Date.now() - questionStartTime) / 1000;
 
         if (isCorrect) {
-            correctCount++; // (النظام القديم) عد 1+
+            correctCount++;
             let basePoints = 0;
             let timeBonus = 0;
 
-            // (النظام الجديد) 1. حساب نقاط الصعوبة
-            // (*** تعديل هنا v9.1.1 ***)
             switch (currentQuestion.difficulty) {
                 case 'easy': case 'سهل':
                     basePoints = 10; break;
                 case 'hard': case 'صعب':
                     basePoints = 30; break;
-                default: // 'medium' أو 'متوسط' أو أي قيمة أخرى
+                default: 
                     basePoints = 20; break;
             }
 
-            // (النظام الجديد) 2. حساب نقاط السرعة
             const isReviewMode = questionsShuffled.length !== allQuestions.length;
             if (!isReviewMode) {
                 if (timeTakenInSeconds < 5) timeBonus = 10; 
@@ -897,7 +892,6 @@ function runQuizEngine(quizObj, subjectKey) {
         }
     }
 
-    // زر التالي
     if (nextBtn) {
         nextBtn.onclick = () => {
             if (currentIndex < questionsShuffled.length - 1) {
@@ -909,35 +903,29 @@ function runQuizEngine(quizObj, subjectKey) {
         };
     }
 
-    // عرض النتائج (v9.1.2 - إصلاح تحليل الأخطاء للغة العربية)
     function showResults() {
-        const totalQuestions = questionsShuffled.length; // (النظام القديم)
+        const totalQuestions = questionsShuffled.length;
         const isReviewMode = questionsShuffled.length !== allQuestions.length;
         
-        // (النظام الجديد) حساب أقصى نقاط
         let maxPossibleScore = 0;
         let baseMaxScore = 0; 
         
         allQuestions.forEach(q => {
             let basePoints = 0;
-            // (*** تعديل هنا v9.1.1 ***)
             switch (q.difficulty) {
                 case 'easy': case 'سهل':
                     basePoints = 10; break;
                 case 'hard': case 'صعب':
                     basePoints = 30; break;
-                default: // 'medium' أو 'متوسط' أو أي قيمة أخرى
+                default:
                     basePoints = 20; break;
             }
             baseMaxScore += basePoints;
             maxPossibleScore += (basePoints + 10);
         });
 
-        // (النظام الجديد) حساب النسبة المئوية
         const percent = (baseMaxScore > 0) ? Math.round((totalScore / baseMaxScore) * 100) : 0;
         
-        
-        // (*** تعديل v10.0.0: حفظ النتيجة في الخادم ***)
         if (!isReviewMode) { 
             saveQuizResult(
                 quizObj.title || 'اختبار', 
@@ -956,7 +944,6 @@ function runQuizEngine(quizObj, subjectKey) {
             
             const questionsForReview = incorrectList;
             
-            // ... (منطق تحليل الأخطاء والنصائح)
             const errorByDifficulty = { easy: 0, medium: 0, hard: 0 };
             if (questionsForReview.length > 0) {
                 const byTopic = {};
@@ -965,10 +952,9 @@ function runQuizEngine(quizObj, subjectKey) {
                     byTopic[t] = (byTopic[t] || 0) + 1;
                     const d = q.difficulty || 'medium';
                     
-                    // (*** تعديل هنا v9.1.1 ***)
                     if (d === 'easy' || d === 'سهل') errorByDifficulty.easy++;
                     else if (d === 'hard' || d === 'صعب') errorByDifficulty.hard++;
-                    else errorByDifficulty.medium++; // الباقي متوسط
+                    else errorByDifficulty.medium++;
                 });
                 
                 let worst = ''; let maxErr = 0;
