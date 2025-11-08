@@ -1,43 +1,0 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ملخص | Tawal Academy</title>
-    
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4e54c8">
-
-    <link rel="stylesheet" href="style.css?v=1.7"> <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-</head>
-<body>
-    <div class="quiz-container">
-        <div class="quiz-header">
-            <a href="index.html" class="home-link" aria-label="العودة للرئيسية">🏠</a>
-            <h2><span id="summary-title">جاري تحميل الملخص...</span></h2>
-        </div>
-
-        <div class="summary-tabs">
-            <button id="btn-summary-files" class="tab-btn active">📁 الملفات (PDF/Word)</button>
-            <button id="btn-summary-images" class="tab-btn">🖼️ معرض الصور</button>
-        </div>
-
-        <div class="quiz-body">
-            <div class="summary-content-container" id="summary-content-files">
-                <p class="placeholder">جاري تحميل قائمة الملفات...</p>
-            </div>
-            
-            <div class="summary-content-container" id="summary-content-images" style="display: none;">
-                <p class="placeholder">لا توجد صور لهذا الملخص.</p>
-            </div>
-        </div>
-        
-    </div>
-
-    <div id="lightbox-modal" class="lightbox-modal">
-        <span class="lightbox-close" id="lightbox-close">&times;</span>
-        <img class="lightbox-content" id="lightbox-img">
-    </div>
-
-<script src="app.js?v=8.0"></script> </body>
-</html>
