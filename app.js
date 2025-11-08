@@ -1,14 +1,15 @@
 /*
- * app.js - Tawal Academy (v10.1.0 - Activity Logging)
+ * app.js - Tawal Academy (v10.2.0 - Force Re-Login)
+ * - (تعديل) تغيير مفتاح localStorage لإجبار جميع المستخدمين على إعادة التسجيل في الخادم الجديد.
  * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
- * - (تعديل) استدعاء logActivity عند الضغط على أزرار التبويب في initSummaryPage.
  */
 
 /* =======================
    (جديد) إعدادات الاتصال بالخادم
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-let STUDENT_ID = localStorage.getItem('tawal_studentId');
+// (*** تعديل v10.2.0: تغيير المفتاح لإجبار إعادة التسجيل ***)
+let STUDENT_ID = localStorage.getItem('tawal_studentId_v2');
 
 /* =======================
    إعدادات ومفاتيح التخزين
@@ -206,8 +207,9 @@ async function registerStudent() {
         if (data.id) {
             // نجح التسجيل
             STUDENT_ID = data.id;
-            localStorage.setItem('tawal_studentId', data.id);
-            localStorage.setItem('tawal_studentName', data.name);
+            // (*** تعديل v10.2.0: استخدام المفتاح الجديد ***)
+            localStorage.setItem('tawal_studentId_v2', data.id);
+            localStorage.setItem('tawal_studentName_v2', data.name);
             alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
             return true;
         } else if (data.error && data.error.includes('UNIQUE')) {
