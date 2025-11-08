@@ -1,281 +1,999 @@
-/*
- * control_panel.js - Tawal Academy (v1.1.0 - Student Details Modal)
- * لوحة تحكم الإدارة
- */
+/* --- Root Variables (Dark Theme Default) --- */
+:root {
+    --bg-color: #1a1a2e;
+    --bg-secondary-color: #2a2a4e;
+    --text-color: #e0e0e0;
+    --text-color-light: #b0b0d0;
+    --border-color: #3a3a5e;
+    --primary-color: #8f94fb;
+    --primary-color-gradient: linear-gradient(90deg, #4e54c8, #8f94fb);
+    --shadow-color: rgba(0, 0, 0, 0.2);
 
-// (هام) الرابط الخاص بالخادم الذي قمنا بنشره
-const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-
-// (هام) كلمة سر الإدارة
-const ADMIN_PASSWORD = 'T357891$';
-
-// (جديد) جلب عناصر النافذة المنبثقة
-const modal = document.getElementById('student-modal');
-const modalCloseBtn = document.getElementById('modal-close-btn');
-const modalStudentName = document.getElementById('modal-student-name');
-const modalStatsContainer = document.getElementById('modal-stats-container');
-const modalResultsContainer = document.getElementById('modal-results-container');
-
-
-/**
- * دالة رئيسية يتم تشغيلها عند تحميل الصفحة
- */
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. طلب كلمة السر أولاً
-    if (!checkAdminPassword()) {
-        document.getElementById('dashboard-content').innerHTML = `
-            <p class="dashboard-empty-state" style="color: var(--color-incorrect);">
-                كلمة السر خاطئة. تم رفض الوصول.
-            </p>`;
-        return;
-    }
-
-    // 2. إذا كانت كلمة السر صحيحة، قم بتحميل البيانات
-    loadDashboard();
-
-    // 3. (جديد) ربط أزرار إغلاق النافذة
-    if (modalCloseBtn) {
-        modalCloseBtn.onclick = () => closeModal();
-    }
-    if (modal) {
-        // إغلاق النافذة عند الضغط خارجها
-        modal.onclick = (event) => {
-            if (event.target == modal) {
-                closeModal();
-            }
-        };
-    }
-});
-
-/**
- * طلب كلمة السر وحماية الصفحة
- */
-function checkAdminPassword() {
-    const enteredPassword = prompt('الرجاء إدخال كلمة سر الإدارة (Admin Password):');
-    if (enteredPassword === ADMIN_PASSWORD) {
-        return true;
-    } else {
-        return false;
-    }
+    --color-correct: #2ecc71;
+    --color-correct-bg: rgba(46, 204, 113, 0.1);
+    --color-incorrect: #e74c3c;
+    --color-incorrect-bg: rgba(231, 76, 60, 0.1);
+    --color-pass: #f39c12;
+    --color-pass-bg: rgba(243, 156, 18, 0.1);
 }
 
-/**
- * تحميل جميع بيانات لوحة التحكم
- */
-async function loadDashboard() {
-    // جلب الإحصائيات والطلاب والسجلات في نفس الوقت
-    await Promise.all([
-        fetchStats(),
-        fetchStudents(),
-        fetchLogs()
-    ]);
+/* --- Light Theme Variables --- */
+body.light-mode {
+    --bg-color: #f4f7f6;
+    --bg-secondary-color: #ffffff;
+    --text-color: #1a1a2e;
+    --text-color-light: #5a5a7e;
+    --border-color: #e0e0e0;
+    --primary-color: #4e54c8;
+    --shadow-color: rgba(0, 0, 0, 0.05);
 }
 
-/**
- * 1. جلب الإحصائيات العامة
- */
-async function fetchStats() {
-    const container = document.getElementById('stats-container');
-    try {
-        const response = await fetch(`${API_URL}/admin/stats`);
-        const stats = await response.json();
-
-        if (stats.error) throw new Error(stats.error);
-
-        container.innerHTML = `
-            <div class="dashboard-summary-grid">
-                <div class="summary-box">
-                    <p class="summary-box-label">إجمالي الطلاب</p>
-                    <p class="summary-box-value">${stats.totalStudents}</p>
-                </div>
-                <div class="summary-box">
-                    <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalQuizzes}</p>
-                </div>
-                <div class="summary-box">
-                    <p class="summary-box-label">متوسط الدرجات (نقاط)</p>
-                    <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">
-                        ${stats.averageScore}
-                    </p>
-                </div>
-            </div>
-        `;
-    } catch (err) {
-        console.error('Error fetching stats:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
-    }
+/* --- General Styles --- */
+body {
+    font-family: 'Cairo', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    transition: background-color 0.3s, color 0.3s;
+    direction: rtl;
 }
 
-/**
- * 2. جلب قائمة الطلاب (*** تم التعديل ***)
- */
-async function fetchStudents() {
-    const container = document.getElementById('students-container');
-    try {
-        const response = await fetch(`${API_URL}/admin/students`);
-        const students = await response.json();
-
-        if (students.error) throw new Error(students.error);
-        if (students.length === 0) {
-            container.innerHTML = '<p class="dashboard-empty-state">لم يسجل أي طلاب بعد.</p>';
-            return;
-        }
-
-        let tableHtml = '<table class="admin-table">';
-        tableHtml += '<thead><tr><th>ID</th><th>الاسم (اضغط للعرض)</th><th>البريد الإلكتروني</th><th>تاريخ التسجيل</th></tr></thead>';
-        tableHtml += '<tbody>';
-
-        students.forEach(student => {
-            // (تعديل) إضافة دالة onclick لفتح التفاصيل
-            tableHtml += `
-                <tr>
-                    <td>${student.id}</td>
-                    <td class="clickable-student" onclick="showStudentDetails(${student.id}, '${student.name}')">
-                        ${student.name}
-                    </td>
-                    <td>${student.email}</td>
-                    <td>${new Date(student.createdAt).toLocaleDateString('ar-EG')}</td>
-                </tr>
-            `;
-        });
-
-        tableHtml += '</tbody></table>';
-        container.innerHTML = tableHtml;
-
-    } catch (err) {
-        console.error('Error fetching students:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل قائمة الطلاب.</p>';
-    }
+* {
+    box-sizing: border-box;
 }
 
-/**
- * 3. جلب سجلات الدخول
- */
-async function fetchLogs() {
-    const container = document.getElementById('logs-container');
-    try {
-        const response = await fetch(`${API_URL}/admin/login-logs`);
-        const logs = await response.json();
-
-        if (logs.error) throw new Error(logs.error);
-        if (logs.length === 0) {
-            container.innerHTML = '<p class="dashboard-empty-state">لا توجد سجلات دخول حتى الآن.</p>';
-            return;
-        }
-
-        let tableHtml = '<table class="admin-table">';
-        tableHtml += '<thead><tr><th>اسم الطالب</th><th>وقت الدخول</th><th>وقت الخروج</th></tr></thead>';
-        tableHtml += '<tbody>';
-
-        // عرض آخر 20 سجل فقط
-        logs.slice(0, 20).forEach(log => {
-            tableHtml += `
-                <tr>
-                    <td>${log.name} (${log.email})</td>
-                    <td>${new Date(log.loginTime).toLocaleString('ar-EG')}</td>
-                    <td>${log.logoutTime ? new Date(log.logoutTime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
-                </tr>
-            `;
-        });
-
-        tableHtml += '</tbody></table>';
-        container.innerHTML = tableHtml;
-
-    } catch (err) {
-        console.error('Error fetching logs:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجلات الدخول.</p>';
-    }
+/* --- Main Container & Header (index.html) --- */
+.main-container {
+    width: 95%;
+    max-width: 1200px;
 }
 
-/*
- * =====================================
- * (*** جديد: دوال النافذة المنبثقة ***)
- * =====================================
- */
-
-/**
- * إظهار النافذة المنبثقة وتحميل بيانات الطالب
- */
-async function showStudentDetails(studentId, studentName) {
-    if (!modal) return;
-
-    // 1. فتح النافذة وإظهار التحميل
-    modal.style.display = 'block';
-    modalStudentName.innerText = `بيانات الطالب: ${studentName}`;
-    modalStatsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الإحصائيات...</p>';
-    modalResultsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل النتائج...</p>';
-
-    // 2. جلب البيانات (الإحصائيات والنتائج)
-    try {
-        const [statsResponse, resultsResponse] = await Promise.all([
-            fetch(`${API_URL}/students/${studentId}/stats`),
-            fetch(`${API_URL}/students/${studentId}/results`)
-        ]);
-
-        const stats = await statsResponse.json();
-        const results = await resultsResponse.json();
-
-        // 3. عرض الإحصائيات
-        if (stats.error) {
-            modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
-        } else {
-            modalStatsContainer.innerHTML = `
-                <div class="dashboard-summary-grid">
-                    <div class="summary-box">
-                        <p class="summary-box-label">إجمالي الاختبارات</p>
-                        <p class="summary-box-value">${stats.totalQuizzes}</p>
-                    </div>
-                    <div class="summary-box">
-                        <p class="summary-box-label">متوسط النقاط</p>
-                        <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
-                    </div>
-                    <div class="summary-box">
-                        <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
-                        <p class="summary-box-value level-excellent">${stats.bestScore}</p>
-                    </div>
-                </div>
-            `;
-        }
-
-        // 4. عرض جدول النتائج
-        if (results.error) {
-            modalResultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
-        } else if (results.length === 0) {
-            modalResultsContainer.innerHTML = '<p class="dashboard-empty-state">لم يقم هذا الطالب بإجراء أي اختبارات بعد.</p>';
-        } else {
-            let tableHtml = '<table class="admin-table">';
-            tableHtml += '<thead><tr><th>اسم الاختبار</th><th>النقاط</th><th>الإجابات</th><th>التاريخ</th></tr></thead>';
-            tableHtml += '<tbody>';
-            results.forEach(att => {
-                tableHtml += `
-                    <tr>
-                        <td>${att.quizName}</td>
-                        <td style="color: var(--primary-color); font-weight: bold;">${att.score}</td>
-                        <td>${att.correctAnswers} / ${att.totalQuestions}</td>
-                        <td>${new Date(att.completedAt).toLocaleString('ar-EG')}</td>
-                    </tr>
-                `;
-            });
-            tableHtml += '</tbody></table>';
-            modalResultsContainer.innerHTML = tableHtml;
-        }
-
-    } catch (err) {
-        console.error('Error fetching student details:', err);
-        modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل الاتصال بالخادم.</p>';
-        modalResultsContainer.innerHTML = '';
-    }
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
 }
 
-/**
- * إغلاق النافذة المنبثقة
- */
-function closeModal() {
-    if (modal) {
-        modal.style.display = 'none';
-        // مسح البيانات القديمة عند الإغلاق
-        modalStudentName.innerText = '...';
-        modalStatsContainer.innerHTML = '';
-        modalResultsContainer.innerHTML = '';
+.logo {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin: 0;
+    display: flex; 
+    align-items: center;
+}
+.logo img {
+    height: 35px;
+    width: auto;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));
+    transition: filter 0.3s;
+}
+
+
+.intro {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.intro h2 {
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+}
+.intro p {
+    font-size: 1.2rem;
+    color: var(--text-color-light);
+}
+
+.results-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 2rem 0;
+}
+
+/* --- Theme Toggle Button --- */
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.theme-toggle-btn {
+    background: var(--bg-secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    transition: all 0.3s ease;
+}
+.theme-toggle-btn:hover {
+    box-shadow: 0 4px 10px var(--shadow-color);
+}
+.theme-toggle-btn svg {
+    color: var(--text-color);
+}
+.theme-toggle-btn .icon-sun { display: none; }
+.theme-toggle-btn .icon-moon { display: block; }
+
+body.light-mode .theme-toggle-btn .icon-sun { display: block; }
+body.light-mode .theme-toggle-btn .icon-moon { display: none; }
+
+
+/* --- Subjects Grid (index.html) --- */
+.subjects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.subject-card {
+    background-color: var(--bg-secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 5px 15px var(--shadow-color);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.subject-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px var(--shadow-color);
+}
+.card-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+.card-icon svg {
+    width: 48px;
+    height: 48px;
+    stroke: var(--primary-color);
+}
+.card-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    min-height: 3.5em; /* Ensures title alignment */
+    margin: 0 0 1.5rem 0;
+}
+.card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.card-btn {
+    text-decoration: none;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    display: block;
+}
+.card-btn.btn-quiz {
+    background: var(--primary-color-gradient);
+    color: white;
+}
+.card-btn.btn-quiz:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(143, 148, 251, 0.3);
+}
+.card-btn.btn-summary {
+    background-color: var(--bg-secondary-color);
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+.card-btn.btn-summary:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-secondary-color);
+}
+.card-btn.disabled {
+    background: var(--border-color);
+    color: var(--text-color-light);
+    border-color: var(--border-color);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+.card-btn.disabled:hover {
+    transform: none;
+    box-shadow: none;
+    background: var(--border-color);
+    color: var(--text-color-light);
+}
+
+/* --- Search Bar Styles --- */
+.search-container {
+    margin: 1rem 0 2rem 0;
+    display: flex;
+    justify-content: center;
+}
+#search-bar {
+    width: 100%;
+    max-width: 500px;
+    padding: 0.9rem 1.2rem;
+    font-size: 1.1rem;
+    font-family: 'Cairo', sans-serif;
+    border-radius: 10px;
+    border: 2px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px var(--shadow-color);
+}
+#search-bar:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 10px rgba(78, 84, 200, 0.2);
+}
+#no-results-message {
+     padding: 2rem;
+}
+
+
+/* --- Quiz / Summary Container (quiz.html, summary.html) --- */
+.quiz-container {
+    background-color: var(--bg-secondary-color);
+    border-radius: 15px;
+    box-shadow: 0 10px 20px var(--shadow-color);
+    width: 100%;
+    max-width: none;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    margin: 0;
+}
+
+/* --- Header & Progress --- */
+.quiz-header {
+    padding: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+}
+.quiz-header h2 {
+    margin: 0;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+.progress-container {
+    width: 100%;
+    background-color: var(--bg-color);
+    border-radius: 5px;
+    height: 10px;
+    margin-top: 1rem;
+}
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--primary-color-gradient);
+    border-radius: 5px;
+    transition: width 0.4s ease;
+}
+.question-counter {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-color-light);
+}
+.quiz-header .home-link {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    color: var(--text-color-light);
+    text-decoration: none;
+    transition: color 0.3s;
+}
+.quiz-header .home-link:hover {
+    color: var(--primary-color);
+}
+
+/* --- Body (Quiz Options) --- */
+.quiz-body {
+    padding: 2.5rem;
+}
+#question-text {
+    font-size: 1.6rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 2.5rem;
+    min-height: 100px;
+}
+.options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.option-btn {
+    width: 100%;
+    background-color: var(--bg-color);
+    border: 2px solid var(--border-color);
+    color: var(--text-color);
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-family: 'Cairo', sans-serif;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+}
+.option-btn:not(:disabled):hover {
+    background-color: var(--bg-secondary-color);
+    border-color: var(--primary-color);
+}
+.option-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+.option-btn .icon {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+.option-btn.correct {
+    background-color: var(--color-correct-bg);
+    border-color: var(--color-correct);
+    color: var(--color-correct);
+}
+.option-btn.correct .icon::before { content: '✓'; }
+.option-btn.incorrect {
+    background-color: var(--color-incorrect-bg);
+    border-color: var(--color-incorrect);
+    color: var(--color-incorrect);
+}
+.option-btn.incorrect .icon::before { content: '✗'; }
+
+.feedback {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    height: 30px;
+}
+.feedback.correct { color: var(--color-correct); }
+.feedback.incorrect { color: var(--color-incorrect); }
+
+
+/* --- Body (Summary Content) --- */
+.summary-content-container {
+    padding: 2.5rem;
+    line-height: 1.8;
+    font-size: 1.1rem;
+}
+.summary-content-container h3 {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 2rem;
+}
+.summary-content-container p {
+    margin-bottom: 1rem;
+}
+.summary-content-container ul {
+    padding-right: 20px;
+}
+.summary-content-container .placeholder {
+    font-size: 1.2rem;
+    text-align: center;
+    color: var(--text-color-light);
+    padding: 3rem 0;
+}
+
+/* --- Footer (Quiz) --- */
+.quiz-footer {
+    padding: 2rem;
+    background-color: var(--bg-color);
+    text-align: left;
+    border-top: 1px solid var(--border-color);
+}
+.next-btn {
+    background: var(--primary-color-gradient);
+    border: none;
+    color: white;
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.next-btn:disabled {
+    background: var(--border-color);
+    cursor: not-allowed;
+    opacity: 0.5;
+    color: var(--text-color-light);
+}
+.next-btn:not(:disabled):hover {
+    box-shadow: 0 5px 15px rgba(143, 148, 251, 0.3);
+    transform: translateY(-2px);
+}
+
+/* --- Results Screen --- */
+.results-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 2rem;
+    text-align: center;
+}
+.results-chart { 
+    width: 180px; 
+    height: 180px; 
+    border-radius: 50%; 
+    background: conic-gradient( var(--percentage-color, #8f94fb) var(--percentage-value, 0deg),  var(--bg-color) 0deg ); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    position: relative; 
+    margin-bottom: 1.5rem; 
+    transition: background 0.5s ease; 
+}
+.results-chart::before { 
+    content: ''; 
+    position: absolute; 
+    width: 140px; 
+    height: 140px; 
+    background: var(--bg-secondary-color); 
+    border-radius: 50%; 
+}
+.percentage-text { 
+    font-size: 2.5rem; 
+    font-weight: 700; 
+    color: var(--text-color); 
+    z-index: 2; 
+}
+.results-feedback-text { 
+    font-size: 1.5rem; 
+    font-weight: 600; 
+    margin-top: 0; 
+    margin-bottom: 0.5rem; 
+    transition: color 0.5s ease; 
+}
+.results-score-text { 
+    font-size: 1.1rem; 
+    color: var(--text-color-light); 
+    margin-top: 0; 
+    margin-bottom: 2rem; 
+}
+.level-excellent { --percentage-color: #2ecc71; color: #2ecc71; }
+.level-good { --percentage-color: #3498db; color: #3498db; }
+.level-pass { --percentage-color: #f39c12; color: #f39c12; }
+.level-fail { --percentage-color: #e74c3c; color: #e74c3c; }
+
+.results-summary-grid {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+.summary-box {
+    background-color: var(--bg-color);
+    padding: 1rem;
+    border-radius: 10px;
+    width: 45%;
+    border: 1px solid var(--border-color);
+}
+.summary-box-label {
+    font-size: 1rem;
+    color: var(--text-color-light);
+    margin: 0 0 0.5rem 0;
+}
+.summary-box-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+}
+.summary-box-value.correct { color: var(--color-correct); }
+.summary-box-value.incorrect { color: var(--color-incorrect); }
+
+.analysis-section {
+    width: 100%;
+    text-align: right;
+    margin-bottom: 1.5rem;
+}
+.analysis-section h4 {
+    font-size: 1.2rem;
+    color: var(--text-color);
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 0.5rem;
+}
+.difficulty-analysis ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+}
+.difficulty-analysis li {
+    font-size: 1.1rem;
+    color: var(--text-color-light);
+    margin-bottom: 0.5rem;
+}
+.difficulty-analysis li span {
+    font-weight: 700;
+    color: var(--color-incorrect);
+}
+.advice-box {
+    background-color: var(--color-pass-bg);
+    border: 1px solid var(--color-pass);
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    color: var(--color-pass);
+    line-height: 1.6;
+}
+.advice-box strong {
+    color: var(--text-color);
+}
+.error-list {
+    width: 100%;
+    text-align: right;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.error-list details {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.error-list summary {
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 1rem;
+    cursor: pointer;
+    background-color: var(--bg-color);
+}
+.error-list-content {
+    background-color: var(--bg-secondary-color);
+    padding: 1rem;
+}
+.error-list ul {
+    padding-right: 20px;
+    margin: 0;
+}
+.error-list li {
+    font-size: 1rem;
+    color: var(--text-color-light);
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+
+/* --- Dashboard Specific Styles --- */
+.dashboard-body {
+    padding: 2.5rem;
+}
+
+.dashboard-link {
+    background: var(--bg-secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+.dashboard-link:hover {
+    box-shadow: 0 4px 10px var(--shadow-color);
+    border-color: var(--primary-color);
+}
+.dashboard-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.subject-history-card {
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    box-shadow: 0 5px 10px var(--shadow-color);
+}
+.subject-history-card h3 {
+    font-size: 1.3rem;
+    padding: 1rem 1.5rem;
+    margin: 0;
+    background-color: var(--bg-secondary-color);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--primary-color);
+}
+.history-list {
+    list-style-type: none;
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 0;
+    border-bottom: 1px dashed var(--border-color);
+    font-size: 1.1rem;
+}
+.history-item:last-child {
+    border-bottom: none;
+}
+.history-item .score {
+    font-weight: 700;
+}
+.history-item .score.level-excellent { color: var(--color-correct); }
+.history-item .score.level-good { color: #3498db; }
+.history-item .score.level-pass { color: var(--color-pass); }
+.history-item .score.level-fail { color: var(--color-incorrect); }
+.history-item .history-date {
+    font-size: 0.9rem;
+    color: var(--text-color-light);
+}
+.dashboard-empty-state {
+    text-align: center;
+    padding: 3rem;
+    font-size: 1.2rem;
+    color: var(--text-color-light);
+}
+.clear-progress-btn {
+    background: var(--color-incorrect-bg);
+    border: 1px solid var(--color-incorrect);
+    color: var(--color-incorrect);
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1.5rem;
+    float: left; 
+}
+.clear-progress-btn:hover {
+    background: var(--color-incorrect);
+    color: white;
+}
+.results-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+.back-home {
+    background-color: var(--bg-secondary-color);
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+    padding: 0.8rem 1.5rem;
+}
+.back-home:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-secondary-color);
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    .logo { font-size: 1.5rem; }
+    .intro h2 { font-size: 1.8rem; }
+    .intro p { font-size: 1rem; }
+    
+    .quiz-container {
+        width: 100%;
+        margin-top: 0;
     }
+    .quiz-body, .quiz-footer, .results-container, .dashboard-body {
+        padding: 1.5rem;
+    }
+    .quiz-header { padding: 1.5rem; }
+    #question-text { font-size: 1.3rem; min-height: 80px; }
+    .option-btn { font-size: 1.1rem; padding: 0.9rem; }
+    .summary-box-value { font-size: 1.5rem; }
+    .results-chart { width: 150px; height: 150px; }
+    .results-chart::before { width: 120px; height: 120px; }
+    .percentage-text { font-size: 2rem; }
+}
+
+/* --- كود تنسيق شرح النتائج --- */
+.results-explanation {
+    font-size: 0.95rem;
+    color: var(--text-color-light);
+    margin-top: -10px;
+    margin-bottom: 15px;
+    padding: 0 1rem;
+    line-height: 1.5;
+}
+
+.results-explanation strong {
+    color: var(--text-color);
+}
+
+/* --- تنسيق أزرار تبويب الملخص --- */
+.summary-tabs {
+    display: flex;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+}
+.tab-btn {
+    flex: 1; /* يأخذ نصف المساحة */
+    background: none;
+    border: none;
+    color: var(--text-color-light);
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+}
+.tab-btn:hover {
+    color: var(--text-color);
+}
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom: 3px solid var(--primary-color);
+}
+
+/* --- (جديد v1.6) تنسيق معرض الصور (Lightbox) --- */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+.gallery-item {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.gallery-item:hover {
+    box-shadow: 0 5px 15px var(--shadow-color);
+    transform: translateY(-3px);
+}
+.gallery-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover; 
+    display: block;
+}
+.gallery-item p {
+    font-size: 1rem;
+    color: var(--text-color-light);
+    text-align: center;
+    padding: 0.75rem 1rem;
+    margin: 0;
+    background-color: var(--bg-color);
+}
+
+/* (جديد v1.6) جعل الصور داخل النص قابلة للضغط */
+.summary-content-container img {
+    cursor: pointer;
+    max-width: 100%; /* ضمان عدم تجاوز العرض */
+    height: auto; /* الحفاظ على النسبة */
+    border-radius: 10px; /* (تحسين) إضافة استدارة للصور في النص */
+    transition: opacity 0.3s ease;
+}
+.summary-content-container img:hover {
+    opacity: 0.8;
+}
+
+
+/* نافذة عرض الصورة (Modal) */
+.lightbox-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.lightbox-modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+.lightbox-content {
+    max-width: 90%;
+    max-height: 85%;
+    display: block;
+    object-fit: contain;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: white;
+    font-size: 3rem;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
+.lightbox-close:hover {
+    color: var(--text-color-light);
+}
+/* --- نهاية الكود الجديد --- */
+
+/* --- (جديد) تنسيق روابط تحميل الملفات --- */
+.file-download-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+.file-download-item {
+    margin-bottom: 1rem;
+}
+.file-download-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+.file-download-link:hover {
+    border-color: var(--primary-color);
+    background-color: var(--bg-secondary-color);
+    color: var(--primary-color);
+}
+.file-download-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+.file-download-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+/* --- نهاية الكود الجديد --- */
+
+/* --- (جديد v1.8) تنسيقات لوحة التحكم (Admin) --- */
+.admin-section-title {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: right;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table th {
+    background-color: var(--bg-color);
+    font-size: 1rem;
+    color: var(--text-color-light);
+    position: sticky; /* لتثبيت رأس الجدول عند التمرير */
+    top: 0;
+}
+
+.admin-table tbody tr:nth-child(even) {
+    background-color: var(--bg-color);
+}
+
+.admin-table tbody tr:hover {
+    background-color: var(--bg-secondary-color);
+}
+
+.admin-table td {
+    font-size: 1.1rem;
+}
+
+.admin-table td:first-child {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+/* --- (جديد v1.9) تنسيقات نافذة تفاصيل الطالب --- */
+.admin-table .clickable-student {
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--primary-color);
+    transition: color 0.2s ease;
+}
+.admin-table .clickable-student:hover {
+    color: var(--text-color);
+}
+
+.admin-modal {
+    display: none; /* مخفي افتراضياً */
+    position: fixed;
+    z-index: 1001; /* فوق كل شيء */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding-top: 50px;
+}
+
+.admin-modal-content {
+    background-color: var(--bg-secondary-color);
+    margin: 5% auto;
+    padding: 2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    width: 90%;
+    max-width: 800px;
+    position: relative;
+}
+
+.admin-modal-close {
+    color: var(--text-color-light);
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    font-size: 2.5rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+.admin-modal-close:hover {
+    color: var(--primary-color);
+}
+
+.admin-modal-content h3 {
+     color: var(--primary-color);
+     font-size: 1.8rem;
+     margin-top: 0;
+}
+.admin-modal-content h4 {
+    font-size: 1.3rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+/* (إعادة استخدام التنسيق من لوحة التقدم) */
+.admin-modal-content .dashboard-summary-grid {
+     margin-bottom: 0;
+}
+.admin-modal-content .admin-table-container {
+    max-height: 250px; /* ارتفاع أصغر للنافذة */
 }
