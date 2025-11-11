@@ -1,19 +1,15 @@
 /*
- * app.js - Tawal Academy (v10.4.0 - Force Re-Login v3)
- * - (تعديل) تغيير مفتاح localStorage لإجبار جميع المستخدمين على إعادة التسجيل (v3).
- * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
- * - (تعديل Gemini) استخدام sessionStorage لضمان ظهور سؤال الدخول مرة واحدة فقط.
- * - (تعديل Gemini) إضافة معالجة لخطأ 403 (الحظر) عند التسجيل.
- * - (تعديل Gemini) إصلاح حالة الأحرف لـ PostgreSQL.
- * - (تعديل Gemini) إضافة "حارس" للتحقق من الحظر عند كل تحميل صفحة.
+ * app.js - Tawal Academy (v10.5.0 - Device Fingerprinting)
+ * - (تعديل Gemini) إضافة "حارس" للتحقق من بصمة الجهاز عند التحميل.
+ * - (تعديل Gemini) إرسال بصمة الجهاز عند التسجيل.
  */
 
 /* =======================
    إعدادات الاتصال بالخادم
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-// (*** تعديل v10.4.0: تغيير المفتاح لإجبار إعادة التسجيل ***)
 let STUDENT_ID = localStorage.getItem('tawal_studentId_v3');
+let DEVICE_FINGERPRINT = null; // (*** جديد: متغير لحفظ البصمة ***)
 
 /* =======================
    إعدادات ومفاتيح التخزين
@@ -32,6 +28,7 @@ const LOGO_SVG = `
 /* =======================
    قائمة المواد
    ======================= */
+// ... (قائمة المواد كما هي، لا تغيير)
 const SUBJECTS = {
     gis_networks: {
         title: "تطبيقات نظم المعلومات الجغرافية فى الشبكات",
@@ -78,7 +75,7 @@ function getSubjectKey() {
 /* =======================
    دوال الاتصال بالخادم (Backend)
    ======================= */
-
+// ... (دوال logActivity, saveQuizResult, loadSubjectData كما هي، لا تغيير)
 function logActivity(activityType, subjectName = null) {
     if (!STUDENT_ID) return; 
     fetch(`${API_URL}/log-activity`, {
@@ -158,7 +155,6 @@ function loadSubjectData(subjectKey) {
             });
     });
 }
-
 /* =======================
    DOMHelpers — الحصول على العناصر بأمان
    ======================= */
@@ -202,7 +198,7 @@ function checkAccessPermission(pageType = 'المحتوى') {
 
 
 /* =======================
-   (نظام التسجيل - v10.4.0 - معدل للحظر)
+   (نظام التسجيل - معدل لبصمة الجهاز)
    ======================= */
 async function registerStudent() {
     const name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء إدخال اسمك (لربط نتائجك به):');
@@ -221,17 +217,18 @@ async function registerStudent() {
         const response = await fetch(`${API_URL}/students/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email })
+            body: JSON.stringify({ 
+                name, 
+                email, 
+                fingerprint: DEVICE_FINGERPRINT // (*** جديد: إرسال البصمة ***)
+            })
         });
         
         const data = await response.json();
 
-        // (*** بداية التعديل: التعامل مع رد الخادم ***)
-
-        // الحالة 1: الحساب محظور
-        if (response.status === 403) { // 403 = Forbidden (محظور)
+        // الحالة 1: الحساب محظور (إما بالحساب أو بالبصمة)
+        if (response.status === 403) { 
             alert(data.error);
-            // إخفاء المحتوى بالكامل
             const quizContainer = document.querySelector('.quiz-container');
             const mainContainer = document.querySelector('.main-container');
             if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>${data.error}</h2></div>`;
@@ -245,7 +242,7 @@ async function registerStudent() {
             return await registerStudent(); // اطلب منه التسجيل مرة أخرى
         }
         
-        // الحالة 3: نجاح (تسجيل جديد أو دخول مستخدم عائد)
+        // الحالة 3: نجاح
         if (data.id) {
             STUDENT_ID = data.id;
             localStorage.setItem('tawal_studentId_v3', data.id);
@@ -253,8 +250,6 @@ async function registerStudent() {
             alert(data.message); // سيعرض "تم التسجيل بنجاح" أو "أهلاً بعودتك!"
             return true;
         } 
-        
-        // (*** نهاية التعديل ***)
 
     } catch (err) {
         console.error('فشل الاتصال بخادم التسجيل:', err);
@@ -265,37 +260,65 @@ async function registerStudent() {
 
 
 /* ========================================================
-   (*** تعديل Gemini: منطق الدخول الهجين مع "الحارس الأمني" ***)
+   (*** تعديل Gemini: "الحارس الأمني" لبصمة الجهاز ***)
    ======================================================== */
 document.addEventListener('DOMContentLoaded', async () => {
+    
+    // (*** جديد: الخطوة 0 - جلب وفحص بصمة الجهاز ***)
+    try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        DEVICE_FINGERPRINT = result.visitorId; // تخزين البصمة في المتغير العام
+
+        const response = await fetch(`${API_URL}/check-device`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fingerprint: DEVICE_FINGERPRINT })
+        });
+        
+        const data = await response.json();
+
+        if (data.banned === true) {
+            // هذا الجهاز محظور
+            alert('هذا الجهاز محظور من قبل الإدارة. لا يمكنك الوصول للمنصة.');
+            // إخفاء المحتوى بالكامل
+            const quizContainer = document.querySelector('.quiz-container');
+            const mainContainer = document.querySelector('.main-container');
+            if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>الجهاز محظور</h2></div>`;
+            if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">الجهاز محظور</h1></header>`;
+            return; // إيقاف تحميل أي شيء آخر
+        }
+        
+    } catch (err) {
+        console.error('فشل في فحص بصمة الجهاز:', err);
+        alert('حدث خطأ أثناء التحقق الأمني. سيتم إيقاف الصفحة.');
+        return;
+    }
+    // (*** نهاية الخطوة 0 ***)
+
+
+    // --- بداية منطق الدخول الهجين (الخطوات 1-5) ---
     initThemeToggle();
 
-    // --- بداية منطق الدخول الهجين ---
     if (!STUDENT_ID) {
-        // (1) مستخدم جديد تماماً: سجل الاسم والإيميل (مرة واحدة فقط)
+        // (1) مستخدم جديد تماماً: سجل الاسم والإيميل (والبصمة)
         const success = await registerStudent();
         if (!success) {
-            return; // إيقاف تحميل الصفحة إذا فشل التسجيل
+            return; 
         }
     } else {
-        // (*** بداية التعديل: إضافة "الحارس الأمني" ***)
         // (2) مستخدم عائد: تحقق من الخادم أولاً للتأكد أنه غير محظور
         try {
             const response = await fetch(`${API_URL}/students/${STUDENT_ID}`);
-            
-            // إذا الطالب اتحذف من قاعدة البيانات أو الرابط غلط
             if (!response.ok) throw new Error('Student not found or API error');
-
             const studentData = await response.json();
 
             if (studentData.isbanned === 1) { // تحقق من حالة الحظر
                 alert('هذا الحساب محظور. تم تسجيل خروجك.');
-                // تسجيل خروج إجباري
                 localStorage.removeItem('tawal_studentId_v3');
                 localStorage.removeItem('tawal_studentName_v3');
                 sessionStorage.removeItem('tawal_accessGranted_v1');
                 
-                // إخفاء المحتوى
                 const quizContainer = document.querySelector('.quiz-container');
                 const mainContainer = document.querySelector('.main-container');
                 if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>حساب محظور</h2></div>`;
@@ -304,19 +327,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (err) {
             console.error('Failed to verify student status', err);
-            // (اختياري) لو فشل التحقق، ممكن نطرده احترازياً
-            // localStorage.removeItem('tawal_studentId_v3');
-            // location.reload();
-            // return;
         }
-        // (*** نهاية التعديل: الحارس الأمني ***)
-
 
         // (3) مستخدم عائد (وغير محظور): اسأله سؤال الدخول
         const accessGranted = sessionStorage.getItem('tawal_accessGranted_v1');
         if (accessGranted !== 'true') {
             if (!checkAccessPermission('المنصة')) {
-                // ... (كود إخفاء المحتوى إذا أجاب خطأ) ...
+                // ... (كود إخفاء المحتوى) ...
                 const quizContainer = document.querySelector('.quiz-container');
                 const mainContainer = document.querySelector('.main-container');
                 if (quizContainer) {
@@ -334,10 +351,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                     document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">الوصول مرفوض</h1>`;
                 }
-                return; // إيقاف تنفيذ أي كود آخر
+                return; 
             }
             
-            // (4) إذا نجح في الإجابة، سجل دخوله واحفظ الحالة في الجلسة
+            // (4) إذا نجح في الإجابة
             sessionStorage.setItem('tawal_accessGranted_v1', 'true'); 
             fetch(`${API_URL}/login`, {
                 method: 'POST',
@@ -346,7 +363,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     }
-    // --- نهاية منطق الدخول الهجين ---
     
     
     // (5) إذا نجح، قم بتحميل محتوى الصفحة كالمعتاد
