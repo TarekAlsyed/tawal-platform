@@ -1,21 +1,18 @@
 /*
  * app.js - Tawal Academy (v10.7.0 - Force Re-Capture Fingerprint v4)
- * - (تعديل Gemini) تغيير مفتاح localStorage إلى v4 لإجبار كل المستخدمين على
- * إعادة التسجيل والتقاط بصمة جهازهم.
+ * - (تعديل Gemini) إصلاح حالة الأحرف لـ snake_case في لوحة التقدم.
  */
 
 /* =======================
    إعدادات الاتصال بالخادم
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-// (*** بداية التعديل: تغيير المفتاح ***)
 let STUDENT_ID = localStorage.getItem('tawal_studentId_v4');
 let DEVICE_FINGERPRINT = null; 
 
 /* =======================
    إعدادات ومفاتيح التخزين
    ======================= */
-// ... (باقي المتغيرات كما هي) ...
 const PROGRESS_KEY = 'tawalAcademyProgress_v1';
 const DEFAULT_SUBJECT = 'gis_networks';
 
@@ -341,7 +338,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const studentData = await response.json();
 
-            if (studentData.isbanned === 1) { // تحقق من حالة الحظر
+            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
+            if (studentData.is_banned === 1) { // تحقق من حالة الحظر
                 alert('هذا الحساب محظور. تم تسجيل خروجك.');
                 // (*** بداية التعديل: تغيير المفتاح ***)
                 localStorage.removeItem('tawal_studentId_v4');
@@ -701,7 +699,7 @@ async function initSummaryPage(subjectKey) {
 
 
 /* =====================================
-   لوحة التقدم (تقرأ من الخادم)
+   لوحة التقدم (تقرأ من الخادم) (*** معدلة ***)
    ===================================== */
 async function initDashboardPage() {
     const container = $('dashboard-content');
@@ -724,9 +722,9 @@ async function initDashboardPage() {
         if (stats.error || results.error) {
             throw new Error('فشل جلب البيانات من الخادم');
         }
-        
-        // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
-        if (stats.totalquizzes === 0) {
+
+        // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
+        if (stats.totalQuizzes === 0) { // (totalQuizzes من الخادم)
             container.innerHTML = '<p class="dashboard-empty-state">لم تقم بإجراء أي اختبارات بعد. ابدأ اختباراً وسيظهر تقدمك هنا!</p>';
             return;
         }
@@ -735,15 +733,15 @@ async function initDashboardPage() {
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalquizzes}</p>
+                    <p class="summary-box-value">${stats.totalQuizzes}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">متوسط النقاط</p>
-                    <p class="summary-box-value ${stats.averagescore >= 50 ? 'correct' : 'incorrect'}">${stats.averagescore}</p>
+                    <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
-                    <p class="summary-box-value level-excellent">${stats.bestscore}</p>
+                    <p class="summary-box-value level-excellent">${stats.bestScore}</p>
                 </div>
             </div>
             <div class="results-divider"></div>
@@ -751,28 +749,28 @@ async function initDashboardPage() {
 
         const resultsByQuiz = {};
         results.forEach(att => {
-            // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
-            if (!resultsByQuiz[att.quizname]) {
-                resultsByQuiz[att.quizname] = [];
+            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
+            if (!resultsByQuiz[att.quiz_name]) {
+                resultsByQuiz[att.quiz_name] = [];
             }
-            resultsByQuiz[att.quizname].push(att);
+            resultsByQuiz[att.quiz_name].push(att);
         });
 
         let subjectCardsHtml = '';
-        for (const quizname in resultsByQuiz) {
+        for (const quiz_name in resultsByQuiz) {
             let historyListHtml = '<ul class="history-list">';
-            resultsByQuiz[quizname].forEach(att => {
+            resultsByQuiz[quiz_name].forEach(att => {
                 let scoreClass = 'level-fail';
                 if (att.score >= 300) scoreClass = 'level-excellent';
                 else if (att.score >= 150) scoreClass = 'level-good';
                 else if (att.score >= 50) scoreClass = 'level-pass';
                 
-                // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
+                // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
                 historyListHtml += `
                     <li class="history-item">
                         <span class="score ${scoreClass}">📈 ${att.score} نقطة</span>
-                        <span class="score-details">( ${att.correctanswers} / ${att.totalquestions} )</span>
-                        <span class="history-date">${new Date(att.completedat).toLocaleDateString('ar-EG')}</span>
+                        <span class="score-details">( ${att.correct_answers} / ${att.total_questions} )</span>
+                        <span class="history-date">${new Date(att.completed_at).toLocaleDateString('ar-EG')}</span>
                     </li>
                 `;
             });
@@ -780,7 +778,7 @@ async function initDashboardPage() {
 
             subjectCardsHtml += `
                 <div class="subject-history-card">
-                    <h3>${quizname}</h3>
+                    <h3>${quiz_name}</h3>
                     ${historyListHtml}
                 </div>
             `;
