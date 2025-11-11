@@ -1,7 +1,7 @@
 /*
  * control_panel.js - Tawal Academy (v1.2.0 - View Student Activity Logs)
  * لوحة تحكم الإدارة
- * (معدل بواسطة Gemini لإضافة خاصية الحظر)
+ * (معدل بواسطة Gemini لإضافة خاصية الحظر + إصلاح حالة الأحرف لـ PostgreSQL)
  */
 
 // (هام) الرابط الخاص بالخادم الذي قمنا بنشره
@@ -129,8 +129,8 @@ async function fetchStudents() {
         tableHtml += '<tbody>';
 
         students.forEach(student => {
-            // (*** تعديل: إضافة زر الحظر وحالة الحظر ***)
-            const isBanned = student.isBanned === 1;
+            // (*** تعديل Gemini: إصلاح حالة الأحرف isbanned ***)
+            const isBanned = student.isbanned === 1;
             const banButtonText = isBanned ? 'فك الحظر' : 'حظر';
             const banButtonClass = isBanned ? 'unban-btn' : 'ban-btn';
             
@@ -141,7 +141,7 @@ async function fetchStudents() {
                         ${student.name} ${isBanned ? '<span style="color:var(--color-incorrect); font-size: 0.8em;">(محظور)</span>' : ''}
                     </td>
                     <td>${student.email}</td>
-                    <td>${new Date(student.createdAt).toLocaleDateString('ar-EG')}</td>
+                    <td>${new Date(student.createdat).toLocaleDateString('ar-EG')}</td>
                     <td>
                         <button class="${banButtonClass}" onclick="toggleBanStatus(${student.id}, ${isBanned ? 0 : 1})">
                             ${banButtonText}
@@ -186,8 +186,8 @@ async function fetchActivityLogs() {
             tableHtml += `
                 <tr>
                     <td>${log.name}</td>
-                    <td>${log.activityType}</td>
-                    <td>${log.subjectName || '—'}</td>
+                    <td>${log.activitytype}</td>
+                    <td>${log.subjectname || '—'}</td>
                     <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                 </tr>
             `;
@@ -225,8 +225,8 @@ async function fetchLogs() {
             tableHtml += `
                 <tr>
                     <td>${log.name} (${log.email})</td>
-                    <td>${new Date(log.loginTime).toLocaleString('ar-EG')}</td>
-                    <td>${log.logoutTime ? new Date(log.logoutTime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
+                    <td>${new Date(log.logintime).toLocaleString('ar-EG')}</td>
+                    <td>${log.logouttime ? new Date(log.logouttime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
                 </tr>
             `;
         });
@@ -244,12 +244,6 @@ async function fetchLogs() {
  * =====================================
  * (*** معدل: دوال النافذة المنبثقة ***)
  * =====================================
- */
-
-/**
- * (ملاحظة) نحتاج إلى تعديل الخادم لإضافة رابط جلب الأنشطة لطالب معين
- * في الوقت الحالي، سنقوم بفلترة الأنشطة التي تم جلبها بالفعل (غير دقيق لكنه سريع)
- * (التطوير المستقبلي: تعديل الخادم لإضافة /api/students/:id/activity-logs)
  */
 
 /**
@@ -274,11 +268,11 @@ async function showStudentDetails(studentId, studentName) {
             fetch(`${API_URL}/admin/activity-logs`) // (مؤقت: جلب كل الأنشطة ثم الفلترة)
         ]);
 
-        const stats = await statsResponse.json();
+        const stats = await resultsResponse.json();
         const results = await resultsResponse.json();
         const allActivities = await activityResponse.json();
 
-        // 3. عرض الإحصائيات
+        // 3. عرض الإحصائيات (*** تعديل Gemini: إصلاح حالة الأحرف ***)
         if (stats.error) {
             modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
         } else {
@@ -300,7 +294,7 @@ async function showStudentDetails(studentId, studentName) {
             `;
         }
 
-        // 4. عرض جدول النتائج
+        // 4. عرض جدول النتائج (*** تعديل Gemini: إصلاح حالة الأحرف ***)
         if (results.error) {
             modalResultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
         } else if (results.length === 0) {
@@ -312,10 +306,10 @@ async function showStudentDetails(studentId, studentName) {
             results.forEach(att => {
                 tableHtml += `
                     <tr>
-                        <td>${att.quizName}</td>
+                        <td>${att.quizname}</td>
                         <td style="color: var(--primary-color); font-weight: bold;">${att.score}</td>
-                        <td>${att.correctAnswers} / ${att.totalQuestions}</td>
-                        <td>${new Date(att.completedAt).toLocaleString('ar-EG')}</td>
+                        <td>${att.correctanswers} / ${att.totalquestions}</td>
+                        <td>${new Date(att.completedat).toLocaleString('ar-EG')}</td>
                     </tr>
                 `;
             });
@@ -323,7 +317,7 @@ async function showStudentDetails(studentId, studentName) {
             modalResultsContainer.innerHTML = tableHtml;
         }
         
-        // 5. (جديد) عرض جدول الأنشطة (بعد الفلترة)
+        // 5. (جديد) عرض جدول الأنشطة (بعد الفلترة) (*** تعديل Gemini: إصلاح حالة الأحرف ***)
         if (allActivities.error) {
              modalActivityContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
         } else {
@@ -337,8 +331,8 @@ async function showStudentDetails(studentId, studentName) {
                 studentActivities.forEach(log => {
                     tableHtml += `
                         <tr>
-                            <td>${log.activityType}</td>
-                            <td>${log.subjectName || '—'}</td>
+                            <td>${log.activitytype}</td>
+                            <td>${log.subjectname || '—'}</td>
                             <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                         </tr>
                     `;
