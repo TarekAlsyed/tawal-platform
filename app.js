@@ -2,7 +2,8 @@
  * app.js - Tawal Academy (v10.4.0 - Force Re-Login v3)
  * - (تعديل) تغيير مفتاح localStorage لإجبار جميع المستخدمين على إعادة التسجيل (v3).
  * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
- * - (تعديل Gemini) استخدام sessionStorage لضمان ظهور سؤال الدخول مرة واحدة فقط لكل جلسة.
+ * - (تعديل Gemini) استخدام sessionStorage لضمان ظهور سؤال الدخول مرة واحدة فقط.
+ * - (تعديل Gemini) إضافة معالجة لخطأ 403 (الحظر) عند التسجيل.
  */
 
 /* =======================
@@ -199,7 +200,7 @@ function checkAccessPermission(pageType = 'المحتوى') {
 
 
 /* =======================
-   (نظام التسجيل - v10.4.0)
+   (نظام التسجيل - v10.4.0 - معدل للحظر)
    ======================= */
 async function registerStudent() {
     const name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء إدخال اسمك (لربط نتائجك به):');
@@ -220,25 +221,39 @@ async function registerStudent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email })
         });
+        
         const data = await response.json();
 
-        if (data.id) {
-            // نجح التسجيل
-            STUDENT_ID = data.id;
-            // (*** تعديل v10.4.0: استخدام المفتاح الجديد ***)
-            localStorage.setItem('tawal_studentId_v3', data.id);
-            localStorage.setItem('tawal_studentName_v3', data.name);
-            alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
-            return true;
-        } else if (data.error && data.error.includes('UNIQUE')) {
-            alert(`أهلاً بعودتك يا ${name}! يبدو أنك مسجل بالفعل.`);
-            // (مستقبلاً: يجب جلب الـ ID من الإيميل)
-            // لإعادة المحاولة
-            return await registerStudent(); 
-        } else {
-            alert('حدث خطأ أثناء التسجيل: ' + data.error);
+        // (*** بداية التعديل: التعامل مع رد الخادم ***)
+
+        // الحالة 1: الحساب محظور
+        if (response.status === 403) { // 403 = Forbidden (محظور)
+            alert(data.error);
+            // إخفاء المحتوى بالكامل
+            const quizContainer = document.querySelector('.quiz-container');
+            const mainContainer = document.querySelector('.main-container');
+            if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>${data.error}</h2></div>`;
+            if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">${data.error}</h1></header>`;
             return false;
         }
+
+        // الحالة 2: بيانات خاطئة (اسم ممنوع، إيميل خطأ)
+        if (response.status === 400) {
+            alert(data.error);
+            return await registerStudent(); // اطلب منه التسجيل مرة أخرى
+        }
+        
+        // الحالة 3: نجاح (تسجيل جديد أو دخول مستخدم عائد)
+        if (data.id) {
+            STUDENT_ID = data.id;
+            localStorage.setItem('tawal_studentId_v3', data.id);
+            localStorage.setItem('tawal_studentName_v3', data.name);
+            alert(data.message); // سيعرض "تم التسجيل بنجاح" أو "أهلاً بعودتك!"
+            return true;
+        } 
+        
+        // (*** نهاية التعديل ***)
+
     } catch (err) {
         console.error('فشل الاتصال بخادم التسجيل:', err);
         alert('لا يمكن الاتصال بالخادم. الرجاء التأكد من اتصالك بالإنترنت والمحاولة لاحقاً.');
