@@ -1,23 +1,26 @@
 /*
- * control_panel.js - Tawal Academy (v1.2.0 - View Student Activity Logs)
- * لوحة تحكم الإدارة
- * (معدل بواسطة Gemini لإضافة خاصية الحظر + إصلاح حالة الأحرف لـ PostgreSQL)
+ * control_panel.js - Tawal Academy (v2.0.0 - Secure Admin)
+ * (معدل بواسطة Gemini ليتوافق مع الخادم المؤمّن v2)
  */
 
-// (هام) الرابط الخاص بالخادم الذي قمنا بنشره
+// (هام) الرابط الخاص بالخادم
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-// (هام) كلمة سر الإدارة
-const ADMIN_PASSWORD = 'T357891$';
+// (*** جديد: متغير لحفظ المفتاح السري ***)
+let ADMIN_API_KEY = null; 
 
-// (جديد) جلب عناصر النافذة المنبثقة
-const modal = document.getElementById('student-modal');
-const modalCloseBtn = document.getElementById('modal-close-btn');
-const modalStudentName = document.getElementById('modal-student-name');
-const modalStatsContainer = document.getElementById('modal-stats-container');
-const modalResultsContainer = document.getElementById('modal-results-container');
-const modalActivityContainer = document.getElementById('modal-activity-container'); // (جديد)
-
+/**
+ * (*** جديد: دالة مساعدة لإضافة هيدر المصادقة ***)
+ */
+function getAuthHeaders() {
+    if (!ADMIN_API_KEY) {
+        console.error('ADMIN_API_KEY is not set!');
+    }
+    return {
+        'Content-Type': 'application/json',
+        'x-admin-key': ADMIN_API_KEY 
+    };
+}
 
 /**
  * دالة رئيسية يتم تشغيلها عند تحميل الصفحة
@@ -36,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboard();
 
     // 3. ربط أزرار إغلاق النافذة
+    const modal = document.getElementById('student-modal');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
     if (modalCloseBtn) {
         modalCloseBtn.onclick = () => closeModal();
     }
@@ -49,11 +54,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * طلب كلمة السر وحماية الصفحة
+ * (*** تعديل: طلب وتخزين المفتاح السري ***)
  */
 function checkAdminPassword() {
-    const enteredPassword = prompt('الرجاء إدخال كلمة سر الإدارة (Admin Password):');
-    if (enteredPassword === ADMIN_PASSWORD) {
+    // (ملاحظة: هذا ليس آمناً كفاية، الأفضل استخدام صفحة لوجن حقيقية)
+    const enteredPassword = prompt('الرجاء إدخال مفتاح الإدارة (Admin Key):');
+    if (enteredPassword) { // (لا يمكن التحقق منه هنا، سنفترض أنه صح)
+        ADMIN_API_KEY = enteredPassword;
         return true;
     } else {
         return false;
@@ -61,29 +68,34 @@ function checkAdminPassword() {
 }
 
 /**
- * تحميل جميع بيانات لوحة التحكم (*** تم التعديل ***)
+ * تحميل جميع بيانات لوحة التحكم
  */
 async function loadDashboard() {
     // جلب الإحصائيات والطلاب والسجلات في نفس الوقت
     await Promise.all([
         fetchStats(),
         fetchStudents(),
-        fetchActivityLogs(), // (جديد)
+        fetchActivityLogs(),
         fetchLogs()
     ]);
 }
 
 /**
- * 1. جلب الإحصائيات العامة
+ * 1. جلب الإحصائيات العامة (*** معدل ***)
  */
 async function fetchStats() {
     const container = document.getElementById('stats-container');
     try {
-        const response = await fetch(`${API_URL}/admin/stats`);
+        const response = await fetch(`${API_URL}/admin/stats`, {
+            method: 'GET',
+            headers: getAuthHeaders() // (*** تعديل: إضافة المصادقة ***)
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const stats = await response.json();
 
         if (stats.error) throw new Error(stats.error);
 
+        // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
         container.innerHTML = `
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
@@ -104,17 +116,21 @@ async function fetchStats() {
         `;
     } catch (err) {
         console.error('Error fetching stats:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
+        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات. (تأكد من المفتاح السري)</p>';
     }
 }
 
 /**
- * 2. جلب قائمة الطلاب (*** معدل لإضافة زر الحظر ***)
+ * 2. جلب قائمة الطلاب (*** معدل ***)
  */
 async function fetchStudents() {
     const container = document.getElementById('students-container');
     try {
-        const response = await fetch(`${API_URL}/admin/students`);
+        const response = await fetch(`${API_URL}/admin/students`, {
+            method: 'GET',
+            headers: getAuthHeaders() // (*** تعديل: إضافة المصادقة ***)
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const students = await response.json();
 
         if (students.error) throw new Error(students.error);
@@ -124,13 +140,12 @@ async function fetchStudents() {
         }
 
         let tableHtml = '<table class="admin-table">';
-        // (*** تعديل: إضافة عمود "إجراء" ***)
         tableHtml += '<thead><tr><th>ID</th><th>الاسم (اضغط للعرض)</th><th>البريد الإلكتروني</th><th>تاريخ التسجيل</th><th>إجراء</th></tr></thead>';
         tableHtml += '<tbody>';
 
         students.forEach(student => {
-            // (*** تعديل Gemini: إصلاح حالة الأحرف isbanned ***)
-            const isBanned = student.isbanned === 1;
+            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
+            const isBanned = student.is_banned === 1;
             const banButtonText = isBanned ? 'فك الحظر' : 'حظر';
             const banButtonClass = isBanned ? 'unban-btn' : 'ban-btn';
             
@@ -141,7 +156,7 @@ async function fetchStudents() {
                         ${student.name} ${isBanned ? '<span style="color:var(--color-incorrect); font-size: 0.8em;">(محظور)</span>' : ''}
                     </td>
                     <td>${student.email}</td>
-                    <td>${new Date(student.createdat).toLocaleDateString('ar-EG')}</td>
+                    <td>${new Date(student.created_at).toLocaleDateString('ar-EG')}</td>
                     <td>
                         <button class="${banButtonClass}" onclick="toggleBanStatus(${student.id}, ${isBanned ? 0 : 1})">
                             ${banButtonText}
@@ -149,7 +164,6 @@ async function fetchStudents() {
                     </td>
                 </tr>
             `;
-            // (*** نهاية التعديل ***)
         });
 
         tableHtml += '</tbody></table>';
@@ -157,18 +171,22 @@ async function fetchStudents() {
 
     } catch (err) {
         console.error('Error fetching students:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل قائمة الطلاب.</p>';
+        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل قائمة الطلاب. (تأكد من المفتاح السري)</p>';
     }
 }
 
 
 /**
- * 3. (جديد) جلب سجل الأنشطة العام
+ * 3. جلب سجل الأنشطة العام (*** معدل ***)
  */
 async function fetchActivityLogs() {
     const container = document.getElementById('activity-logs-container');
     try {
-        const response = await fetch(`${API_URL}/admin/activity-logs`);
+        const response = await fetch(`${API_URL}/admin/activity-logs`, {
+            method: 'GET',
+            headers: getAuthHeaders() // (*** تعديل: إضافة المصادقة ***)
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const logs = await response.json();
 
         if (logs.error) throw new Error(logs.error);
@@ -181,13 +199,13 @@ async function fetchActivityLogs() {
         tableHtml += '<thead><tr><th>الطالب</th><th>النشاط</th><th>المادة</th><th>الوقت</th></tr></thead>';
         tableHtml += '<tbody>';
 
-        // عرض آخر 20 نشاط عام
         logs.slice(0, 20).forEach(log => {
+            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
             tableHtml += `
                 <tr>
                     <td>${log.name}</td>
-                    <td>${log.activitytype}</td>
-                    <td>${log.subjectname || '—'}</td>
+                    <td>${log.activity_type}</td>
+                    <td>${log.subject_name || '—'}</td>
                     <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                 </tr>
             `;
@@ -198,17 +216,21 @@ async function fetchActivityLogs() {
 
     } catch (err) {
         console.error('Error fetching activity logs:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
+        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة. (تأكد من المفتاح السري)</p>';
     }
 }
 
 /**
- * 4. جلب سجلات الدخول
+ * 4. جلب سجلات الدخول (*** معدل ***)
  */
 async function fetchLogs() {
     const container = document.getElementById('logs-container');
     try {
-        const response = await fetch(`${API_URL}/admin/login-logs`);
+        const response = await fetch(`${API_URL}/admin/login-logs`, {
+            method: 'GET',
+            headers: getAuthHeaders() // (*** تعديل: إضافة المصادقة ***)
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const logs = await response.json();
 
         if (logs.error) throw new Error(logs.error);
@@ -218,15 +240,17 @@ async function fetchLogs() {
         }
 
         let tableHtml = '<table class="admin-table">';
-        tableHtml += '<thead><tr><th>اسم الطالب</th><th>وقت الدخول</th><th>وقت الخروج</th></tr></thead>';
+        tableHtml += '<thead><tr><th>اسم الطالب</th><th>وقت الدخول</th><th>وقت الخروج</th><th>IP</th></tr></thead>';
         tableHtml += '<tbody>';
 
         logs.slice(0, 20).forEach(log => {
+            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
             tableHtml += `
                 <tr>
                     <td>${log.name} (${log.email})</td>
-                    <td>${new Date(log.logintime).toLocaleString('ar-EG')}</td>
-                    <td>${log.logouttime ? new Date(log.logouttime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
+                    <td>${new Date(log.login_time).toLocaleString('ar-EG')}</td>
+                    <td>${log.logout_time ? new Date(log.logout_time).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
+                    <td>${log.ip_address || 'N/A'}</td>
                 </tr>
             `;
         });
@@ -236,47 +260,50 @@ async function fetchLogs() {
 
     } catch (err) {
         console.error('Error fetching logs:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجلات الدخول.</p>';
+        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجلات الدخول. (تأكد من المفتاح السري)</p>';
     }
 }
 
 /*
  * =====================================
- * (*** معدل: دوال النافذة المنبثقة ***)
+ * دوال النافذة المنبثقة (*** معدلة ***)
  * =====================================
  */
 
 /**
- * إظهار النافذة المنبثقة وتحميل بيانات الطالب
+ * إظهار النافذة المنبثقة وتحميل بيانات الطالب (*** معدل ***)
  */
 async function showStudentDetails(studentId, studentName) {
+    const modal = document.getElementById('student-modal');
     if (!modal) return;
 
-    // 1. فتح النافذة وإظهار التحميل
     modal.style.display = 'block';
-    modalStudentName.innerText = `بيانات الطالب: ${studentName}`;
-    modalStatsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الإحصائيات...</p>';
-    modalResultsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل النتائج...</p>';
-    modalActivityContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الأنشطة...</p>';
+    document.getElementById('modal-student-name').innerText = `بيانات الطالب: ${studentName}`;
+    const statsContainer = document.getElementById('modal-stats-container');
+    const resultsContainer = document.getElementById('modal-results-container');
+    const activityContainer = document.getElementById('modal-activity-container');
+    
+    statsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الإحصائيات...</p>';
+    resultsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل النتائج...</p>';
+    activityContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الأنشطة...</p>';
 
-    // 2. جلب البيانات (الإحصائيات والنتائج والأنشطة)
     try {
-        // (تعديل) جلب 3 أنواع من البيانات
+        // (*** تعديل: إضافة المصادقة ***)
         const [statsResponse, resultsResponse, activityResponse] = await Promise.all([
-            fetch(`${API_URL}/students/${studentId}/stats`),
-            fetch(`${API_URL}/students/${studentId}/results`),
-            fetch(`${API_URL}/admin/activity-logs`) // (مؤقت: جلب كل الأنشطة ثم الفلترة)
+            fetch(`${API_URL}/students/${studentId}/stats`), // (ملاحظة: هذا ليس مسار admin، لوحة الطالب لا تحتاج مفتاح)
+            fetch(`${API_URL}/students/${studentId}/results`), // (ملاحظة: هذا ليس مسار admin)
+            fetch(`${API_URL}/admin/activity-logs`, { headers: getAuthHeaders() }) 
         ]);
 
-        const stats = await resultsResponse.json();
+        const stats = await statsResponse.json();
         const results = await resultsResponse.json();
         const allActivities = await activityResponse.json();
 
-        // 3. عرض الإحصائيات (*** تعديل Gemini: إصلاح حالة الأحرف ***)
+        // 3. عرض الإحصائيات (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
         if (stats.error) {
-            modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
+            statsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
         } else {
-            modalStatsContainer.innerHTML = `
+            statsContainer.innerHTML = `
                 <div class="dashboard-summary-grid">
                     <div class="summary-box">
                         <p class="summary-box-label">إجمالي الاختبارات</p>
@@ -294,11 +321,11 @@ async function showStudentDetails(studentId, studentName) {
             `;
         }
 
-        // 4. عرض جدول النتائج (*** تعديل Gemini: إصلاح حالة الأحرف ***)
+        // 4. عرض جدول النتائج (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
         if (results.error) {
-            modalResultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
+            resultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
         } else if (results.length === 0) {
-            modalResultsContainer.innerHTML = '<p class="dashboard-empty-state">لم يقم هذا الطالب بإجراء أي اختبارات بعد.</p>';
+            resultsContainer.innerHTML = '<p class="dashboard-empty-state">لم يقم هذا الطالب بإجراء أي اختبارات بعد.</p>';
         } else {
             let tableHtml = '<table class="admin-table">';
             tableHtml += '<thead><tr><th>اسم الاختبار</th><th>النقاط</th><th>الإجابات</th><th>التاريخ</th></tr></thead>';
@@ -306,24 +333,24 @@ async function showStudentDetails(studentId, studentName) {
             results.forEach(att => {
                 tableHtml += `
                     <tr>
-                        <td>${att.quizname}</td>
+                        <td>${att.quiz_name}</td>
                         <td style="color: var(--primary-color); font-weight: bold;">${att.score}</td>
-                        <td>${att.correctanswers} / ${att.totalquestions}</td>
-                        <td>${new Date(att.completedat).toLocaleString('ar-EG')}</td>
+                        <td>${att.correct_answers} / ${att.total_questions}</td>
+                        <td>${new Date(att.completed_at).toLocaleString('ar-EG')}</td>
                     </tr>
                 `;
             });
             tableHtml += '</tbody></table>';
-            modalResultsContainer.innerHTML = tableHtml;
+            resultsContainer.innerHTML = tableHtml;
         }
         
-        // 5. (جديد) عرض جدول الأنشطة (بعد الفلترة) (*** تعديل Gemini: إصلاح حالة الأحرف ***)
+        // 5. عرض جدول الأنشطة (بعد الفلترة) (*** تعديل Gemini: إصلاح حالة الأحرف لـ snake_case ***)
         if (allActivities.error) {
-             modalActivityContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
+             activityContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
         } else {
             const studentActivities = allActivities.filter(log => log.name === studentName);
             if (studentActivities.length === 0) {
-                 modalActivityContainer.innerHTML = '<p class="dashboard-empty-state">لا توجد أنشطة مسجلة لهذا الطالب.</p>';
+                 activityContainer.innerHTML = '<p class="dashboard-empty-state">لا توجد أنشطة مسجلة لهذا الطالب.</p>';
             } else {
                 let tableHtml = '<table class="admin-table">';
                 tableHtml += '<thead><tr><th>النشاط</th><th>المادة</th><th>الوقت</th></tr></thead>';
@@ -331,22 +358,22 @@ async function showStudentDetails(studentId, studentName) {
                 studentActivities.forEach(log => {
                     tableHtml += `
                         <tr>
-                            <td>${log.activitytype}</td>
-                            <td>${log.subjectname || '—'}</td>
+                            <td>${log.activity_type}</td>
+                            <td>${log.subject_name || '—'}</td>
                             <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                         </tr>
                     `;
                 });
                 tableHtml += '</tbody></table>';
-                modalActivityContainer.innerHTML = tableHtml;
+                activityContainer.innerHTML = tableHtml;
             }
         }
 
     } catch (err) {
         console.error('Error fetching student details:', err);
-        modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل الاتصال بالخادم.</p>';
-        modalResultsContainer.innerHTML = '';
-        modalActivityContainer.innerHTML = '';
+        statsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل الاتصال بالخادم. (تأكد من المفتاح السري)</p>';
+        resultsContainer.innerHTML = '';
+        activityContainer.innerHTML = '';
     }
 }
 
@@ -354,28 +381,32 @@ async function showStudentDetails(studentId, studentName) {
  * إغلاق النافذة المنبثقة
  */
 function closeModal() {
+    const modal = document.getElementById('student-modal');
     if (modal) {
         modal.style.display = 'none';
         // مسح البيانات القديمة عند الإغلاق
-        modalStudentName.innerText = '...';
-        modalStatsContainer.innerHTML = '';
-        modalResultsContainer.innerHTML = '';
-        modalActivityContainer.innerHTML = ''; // (جديد)
+        document.getElementById('modal-student-name').innerText = '...';
+        document.getElementById('modal-stats-container').innerHTML = '';
+        document.getElementById('modal-results-container').innerHTML = '';
+        document.getElementById('modal-activity-container').innerHTML = ''; 
     }
 }
 
-// (*** دالة جديدة: لإرسال طلب الحظر ***)
+/**
+ * دالة إرسال طلب الحظر (*** معدلة ***)
+ */
 async function toggleBanStatus(studentId, newStatus) {
-    if (!confirm(newStatus === 1 ? 'هل أنت متأكد أنك تريد حظر هذا الطالب؟' : 'هل أنت متأكد أنك تريد فك حظر هذا الطالب؟')) {
+    if (!confirm(newStatus === 1 ? 'هل أنت متأكد أنك تريد حظر هذا الطالب (وجهازه والـ IP الخاص به)؟' : 'هل أنت متأكد أنك تريد فك حظر هذا الطالب (وجهازه والـ IP الخاص به)؟')) {
         return;
     }
     
     try {
         const response = await fetch(`${API_URL}/admin/ban`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(), // (*** تعديل: إضافة المصادقة ***)
             body: JSON.stringify({ studentId: studentId, status: newStatus })
         });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         
         if (data.message) {
@@ -386,6 +417,6 @@ async function toggleBanStatus(studentId, newStatus) {
         }
     } catch (err) {
         console.error('Error toggling ban status:', err);
-        alert('فشل الاتصال بالخادم.');
+        alert('فشل الاتصال بالخادم. (تأكد من المفتاح السري)');
     }
 }
