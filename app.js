@@ -5,6 +5,7 @@
  * - (تعديل Gemini) استخدام sessionStorage لضمان ظهور سؤال الدخول مرة واحدة فقط.
  * - (تعديل Gemini) إضافة معالجة لخطأ 403 (الحظر) عند التسجيل.
  * - (تعديل Gemini) إصلاح حالة الأحرف لـ PostgreSQL.
+ * - (تعديل Gemini) إضافة "حارس" للتحقق من الحظر عند كل تحميل صفحة.
  */
 
 /* =======================
@@ -264,7 +265,7 @@ async function registerStudent() {
 
 
 /* ========================================================
-   (*** تعديل Gemini: منطق الدخول الهجين مع ذاكرة الجلسة ***)
+   (*** تعديل Gemini: منطق الدخول الهجين مع "الحارس الأمني" ***)
    ======================================================== */
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
@@ -277,17 +278,47 @@ document.addEventListener('DOMContentLoaded', async () => {
             return; // إيقاف تحميل الصفحة إذا فشل التسجيل
         }
     } else {
-        // (2) مستخدم عائد: تحقق مما إذا كان قد أجاب على السؤال في هذه الجلسة
-        // (*** بداية التعديل: التحقق من ذاكرة الجلسة أولاً ***)
-        const accessGranted = sessionStorage.getItem('tawal_accessGranted_v1');
+        // (*** بداية التعديل: إضافة "الحارس الأمني" ***)
+        // (2) مستخدم عائد: تحقق من الخادم أولاً للتأكد أنه غير محظور
+        try {
+            const response = await fetch(`${API_URL}/students/${STUDENT_ID}`);
+            
+            // إذا الطالب اتحذف من قاعدة البيانات أو الرابط غلط
+            if (!response.ok) throw new Error('Student not found or API error');
 
-        if (accessGranted !== 'true') {
-            // إذا لم يجب بعد، اسأله
-            if (!checkAccessPermission('المنصة')) {
-                // إذا كانت الإجابة خاطئة، قم بإخفاء المحتوى بالكامل
+            const studentData = await response.json();
+
+            if (studentData.isbanned === 1) { // تحقق من حالة الحظر
+                alert('هذا الحساب محظور. تم تسجيل خروجك.');
+                // تسجيل خروج إجباري
+                localStorage.removeItem('tawal_studentId_v3');
+                localStorage.removeItem('tawal_studentName_v3');
+                sessionStorage.removeItem('tawal_accessGranted_v1');
+                
+                // إخفاء المحتوى
                 const quizContainer = document.querySelector('.quiz-container');
                 const mainContainer = document.querySelector('.main-container');
+                if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>حساب محظور</h2></div>`;
+                if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">حساب محظور</h1></header>`;
+                return; // إيقاف تحميل الصفحة
+            }
+        } catch (err) {
+            console.error('Failed to verify student status', err);
+            // (اختياري) لو فشل التحقق، ممكن نطرده احترازياً
+            // localStorage.removeItem('tawal_studentId_v3');
+            // location.reload();
+            // return;
+        }
+        // (*** نهاية التعديل: الحارس الأمني ***)
 
+
+        // (3) مستخدم عائد (وغير محظور): اسأله سؤال الدخول
+        const accessGranted = sessionStorage.getItem('tawal_accessGranted_v1');
+        if (accessGranted !== 'true') {
+            if (!checkAccessPermission('المنصة')) {
+                // ... (كود إخفاء المحتوى إذا أجاب خطأ) ...
+                const quizContainer = document.querySelector('.quiz-container');
+                const mainContainer = document.querySelector('.main-container');
                 if (quizContainer) {
                     quizContainer.innerHTML = `
                         <div class="quiz-header"><h2>الوصول مرفوض</h2></div>
@@ -306,22 +337,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return; // إيقاف تنفيذ أي كود آخر
             }
             
-            // (3) إذا نجح في الإجابة، سجل دخوله واحفظ الحالة في الجلسة
-            // (*** السطر الجديد والمهم ***)
+            // (4) إذا نجح في الإجابة، سجل دخوله واحفظ الحالة في الجلسة
             sessionStorage.setItem('tawal_accessGranted_v1', 'true'); 
-            
             fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ studentId: STUDENT_ID })
             });
         }
-        // (*** نهاية التعديل: إذا كان 'accessGranted' موجوداً، سيتخطى كل هذا ***)
     }
     // --- نهاية منطق الدخول الهجين ---
     
     
-    // (4) إذا نجح، قم بتحميل محتوى الصفحة كالمعتاد
+    // (5) إذا نجح، قم بتحميل محتوى الصفحة كالمعتاد
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
