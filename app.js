@@ -1,19 +1,21 @@
 /*
- * app.js - Tawal Academy (v10.6.0 - Dual Ban System)
- * - (تعديل Gemini) إضافة "حارس" للتحقق من بصمة الجهاز والـ IP عند التحميل.
- * - (تعديل Gemini) إرسال بصمة الجهاز عند التسجيل.
+ * app.js - Tawal Academy (v10.7.0 - Force Re-Capture Fingerprint v4)
+ * - (تعديل Gemini) تغيير مفتاح localStorage إلى v4 لإجبار كل المستخدمين على
+ * إعادة التسجيل والتقاط بصمة جهازهم.
  */
 
 /* =======================
    إعدادات الاتصال بالخادم
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-let STUDENT_ID = localStorage.getItem('tawal_studentId_v3');
-let DEVICE_FINGERPRINT = null; // (*** جديد: متغير لحفظ البصمة ***)
+// (*** بداية التعديل: تغيير المفتاح ***)
+let STUDENT_ID = localStorage.getItem('tawal_studentId_v4');
+let DEVICE_FINGERPRINT = null; 
 
 /* =======================
    إعدادات ومفاتيح التخزين
    ======================= */
+// ... (باقي المتغيرات كما هي) ...
 const PROGRESS_KEY = 'tawalAcademyProgress_v1';
 const DEFAULT_SUBJECT = 'gis_networks';
 
@@ -63,6 +65,7 @@ const SUBJECTS = {
 /* =======================
    مساعدة: الحصول على مفتاح المادة من URL
    ======================= */
+// ... (كما هي، لا تغيير)
 function getSubjectKey() {
     try {
         const params = new URLSearchParams(window.location.search);
@@ -75,7 +78,7 @@ function getSubjectKey() {
 /* =======================
    دوال الاتصال بالخادم (Backend)
    ======================= */
-// ... (دوال logActivity, saveQuizResult, loadSubjectData كما هي، لا تغيير)
+// ... (كما هي، لا تغيير)
 function logActivity(activityType, subjectName = null) {
     if (!STUDENT_ID) return; 
     fetch(`${API_URL}/log-activity`, {
@@ -163,6 +166,7 @@ function $(id) { return document.getElementById(id); }
 /* =======================
    (دالة سؤال الدخول - v10.3.0)
    ======================= */
+// ... (كما هي، لا تغيير)
 function checkAccessPermission(pageType = 'المحتوى') {
     
     const ACCESS_QUESTION = "هل صليت على النبي اليوم؟\n\nمفتاح الدخول: صلى الله عليه وسلم";
@@ -245,8 +249,10 @@ async function registerStudent() {
         // الحالة 3: نجاح
         if (data.id) {
             STUDENT_ID = data.id;
-            localStorage.setItem('tawal_studentId_v3', data.id);
-            localStorage.setItem('tawal_studentName_v3', data.name);
+            // (*** بداية التعديل: تغيير المفتاح ***)
+            localStorage.setItem('tawal_studentId_v4', data.id);
+            localStorage.setItem('tawal_studentName_v4', data.name);
+            // (*** نهاية التعديل ***)
             alert(data.message); // سيعرض "تم التسجيل بنجاح" أو "أهلاً بعودتك!"
             return true;
         } 
@@ -312,7 +318,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
 
     if (!STUDENT_ID) {
-        // (1) مستخدم جديد تماماً: سجل الاسم والإيميل (والبصمة)
+        // (1) مستخدم جديد تماماً (أو مستخدم قديم تم إجباره على التسجيل مجدداً)
         const success = await registerStudent();
         if (!success) {
             return; 
@@ -324,8 +330,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!response.ok) {
                 // (*** جديد: إذا لم يتم العثور على الطالب، امسح الـ ID القديم ***)
                 alert('يبدو أن حسابك القديم لم يعد موجوداً. الرجاء التسجيل من جديد.');
-                localStorage.removeItem('tawal_studentId_v3');
-                localStorage.removeItem('tawal_studentName_v3');
+                // (*** بداية التعديل: تغيير المفتاح ***)
+                localStorage.removeItem('tawal_studentId_v4');
+                localStorage.removeItem('tawal_studentName_v4');
+                // (*** نهاية التعديل ***)
                 sessionStorage.removeItem('tawal_accessGranted_v1');
                 location.reload(); // إعادة تحميل الصفحة ليبدأ كزائر جديد
                 return;
@@ -335,8 +343,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (studentData.isbanned === 1) { // تحقق من حالة الحظر
                 alert('هذا الحساب محظور. تم تسجيل خروجك.');
-                localStorage.removeItem('tawal_studentId_v3');
-                localStorage.removeItem('tawal_studentName_v3');
+                // (*** بداية التعديل: تغيير المفتاح ***)
+                localStorage.removeItem('tawal_studentId_v4');
+                localStorage.removeItem('tawal_studentName_v4');
+                // (*** نهاية التعديل ***)
                 sessionStorage.removeItem('tawal_accessGranted_v1');
                 
                 const quizContainer = document.querySelector('.quiz-container');
@@ -410,6 +420,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* =======================
    Theme toggle بسيطة
    ======================= */
+// ... (كما هي، لا تغيير)
 function initThemeToggle() {
     const btn = $('theme-toggle-btn');
     const saved = localStorage.getItem('theme') || 'dark'; // الوضع الداكن افتراضيًا
@@ -428,6 +439,7 @@ function initThemeToggle() {
 /* ==================================
    Index page
    ================================== */
+// ... (كما هي، لا تغيير)
 async function initIndexPage() {
     const grid = $('subjects-grid');
     if (!grid) return;
@@ -532,6 +544,7 @@ async function loadAndEnableCard(key, cardElement) {
 /* =======================
    Summary page (v10.1.0)
    ======================= */
+// ... (كما هي، لا تغيير)
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     
@@ -711,26 +724,26 @@ async function initDashboardPage() {
         if (stats.error || results.error) {
             throw new Error('فشل جلب البيانات من الخادم');
         }
-
-        if (stats.totalQuizzes === 0) {
+        
+        // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
+        if (stats.totalquizzes === 0) {
             container.innerHTML = '<p class="dashboard-empty-state">لم تقم بإجراء أي اختبارات بعد. ابدأ اختباراً وسيظهر تقدمك هنا!</p>';
             return;
         }
         
-        // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
         const summaryHtml = `
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalQuizzes}</p>
+                    <p class="summary-box-value">${stats.totalquizzes}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">متوسط النقاط</p>
-                    <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
+                    <p class="summary-box-value ${stats.averagescore >= 50 ? 'correct' : 'incorrect'}">${stats.averagescore}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
-                    <p class="summary-box-value level-excellent">${stats.bestScore}</p>
+                    <p class="summary-box-value level-excellent">${stats.bestscore}</p>
                 </div>
             </div>
             <div class="results-divider"></div>
@@ -785,6 +798,7 @@ async function initDashboardPage() {
 /* =======================
    Quiz page init
    ======================= */
+// ... (كما هي، لا تغيير)
 async function initQuizPage(subjectKey) {
     const titleEl = $('quiz-title');
     const questionTextEl = $('question-text');
@@ -827,6 +841,7 @@ async function initQuizPage(subjectKey) {
 /* =======================
    المحرك الرئيسي للاختبار (v9.1.2)
    ======================= */
+// ... (كما هي، لا تغيير)
 function runQuizEngine(quizObj, subjectKey) {
     // عناصر DOM
     const quizTitleEl = $('quiz-title');
