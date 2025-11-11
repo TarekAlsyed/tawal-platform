@@ -997,3 +997,32 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
 .admin-modal-content .admin-table-container {
     max-height: 250px; /* ارتفاع أصغر للنافذة */
 }
+
+/* --- (جديد) تنسيقات أزرار الحظر --- */
+.ban-btn,
+.unban-btn {
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ban-btn {
+    background-color: var(--color-incorrect);
+    color: white;
+}
+.ban-btn:hover {
+    background-color: #c0392b; /* (لون أغمق للأحمر) */
+}
+
+.unban-btn {
+    background-color: var(--color-correct);
+    color: white;
+}
+.unban-btn:hover {
+    background-color: #27ae60; /* (لون أغمق للأخضر) */
+}
