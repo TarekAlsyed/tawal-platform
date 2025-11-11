@@ -4,6 +4,7 @@
  * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
  * - (تعديل Gemini) استخدام sessionStorage لضمان ظهور سؤال الدخول مرة واحدة فقط.
  * - (تعديل Gemini) إضافة معالجة لخطأ 403 (الحظر) عند التسجيل.
+ * - (تعديل Gemini) إصلاح حالة الأحرف لـ PostgreSQL.
  */
 
 /* =======================
@@ -651,7 +652,8 @@ async function initDashboardPage() {
             container.innerHTML = '<p class="dashboard-empty-state">لم تقم بإجراء أي اختبارات بعد. ابدأ اختباراً وسيظهر تقدمك هنا!</p>';
             return;
         }
-
+        
+        // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
         const summaryHtml = `
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
@@ -672,26 +674,28 @@ async function initDashboardPage() {
 
         const resultsByQuiz = {};
         results.forEach(att => {
-            if (!resultsByQuiz[att.quizName]) {
-                resultsByQuiz[att.quizName] = [];
+            // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
+            if (!resultsByQuiz[att.quizname]) {
+                resultsByQuiz[att.quizname] = [];
             }
-            resultsByQuiz[att.quizName].push(att);
+            resultsByQuiz[att.quizname].push(att);
         });
 
         let subjectCardsHtml = '';
-        for (const quizName in resultsByQuiz) {
+        for (const quizname in resultsByQuiz) {
             let historyListHtml = '<ul class="history-list">';
-            resultsByQuiz[quizName].forEach(att => {
+            resultsByQuiz[quizname].forEach(att => {
                 let scoreClass = 'level-fail';
                 if (att.score >= 300) scoreClass = 'level-excellent';
                 else if (att.score >= 150) scoreClass = 'level-good';
                 else if (att.score >= 50) scoreClass = 'level-pass';
-
+                
+                // (*** تعديل Gemini: إصلاح حالة الأحرف ***)
                 historyListHtml += `
                     <li class="history-item">
                         <span class="score ${scoreClass}">📈 ${att.score} نقطة</span>
-                        <span class="score-details">( ${att.correctAnswers} / ${att.totalQuestions} )</span>
-                        <span class="history-date">${new Date(att.completedAt).toLocaleDateString('ar-EG')}</span>
+                        <span class="score-details">( ${att.correctanswers} / ${att.totalquestions} )</span>
+                        <span class="history-date">${new Date(att.completedat).toLocaleDateString('ar-EG')}</span>
                     </li>
                 `;
             });
@@ -699,7 +703,7 @@ async function initDashboardPage() {
 
             subjectCardsHtml += `
                 <div class="subject-history-card">
-                    <h3>${quizName}</h3>
+                    <h3>${quizname}</h3>
                     ${historyListHtml}
                 </div>
             `;
