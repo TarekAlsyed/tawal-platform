@@ -2,6 +2,7 @@
  * app.js - Tawal Academy (v10.4.0 - Force Re-Login v3)
  * - (تعديل) تغيير مفتاح localStorage لإجبار جميع المستخدمين على إعادة التسجيل (v3).
  * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
+ * - (تعديل Gemini) استخدام sessionStorage لضمان ظهور سؤال الدخول مرة واحدة فقط لكل جلسة.
  */
 
 /* =======================
@@ -246,9 +247,9 @@ async function registerStudent() {
 }
 
 
-/* =======================
-   (*** تعديل جذري v10.3.0: منطق الدخول الهجين ***)
-   ======================= */
+/* ========================================================
+   (*** تعديل Gemini: منطق الدخول الهجين مع ذاكرة الجلسة ***)
+   ======================================================== */
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
 
@@ -260,36 +261,46 @@ document.addEventListener('DOMContentLoaded', async () => {
             return; // إيقاف تحميل الصفحة إذا فشل التسجيل
         }
     } else {
-        // (2) مستخدم عائد: اسأل سؤال الصلاة (في كل مرة)
-        if (!checkAccessPermission('المنصة')) {
-            // إذا كانت الإجابة خاطئة، قم بإخفاء المحتوى بالكامل
-            const quizContainer = document.querySelector('.quiz-container');
-            const mainContainer = document.querySelector('.main-container');
+        // (2) مستخدم عائد: تحقق مما إذا كان قد أجاب على السؤال في هذه الجلسة
+        // (*** بداية التعديل: التحقق من ذاكرة الجلسة أولاً ***)
+        const accessGranted = sessionStorage.getItem('tawal_accessGranted_v1');
 
-            if (quizContainer) {
-                quizContainer.innerHTML = `
-                    <div class="quiz-header"><h2>الوصول مرفوض</h2></div>
-                    <div class="quiz-body">
-                        <p class="placeholder" style="color: var(--color-incorrect);">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                    </div>`;
-            } else if (mainContainer) {
-                mainContainer.innerHTML = `
-                    <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
-                    <main>
-                        <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                    </main>`;
-            } else {
-                document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">الوصول مرفوض</h1>`;
+        if (accessGranted !== 'true') {
+            // إذا لم يجب بعد، اسأله
+            if (!checkAccessPermission('المنصة')) {
+                // إذا كانت الإجابة خاطئة، قم بإخفاء المحتوى بالكامل
+                const quizContainer = document.querySelector('.quiz-container');
+                const mainContainer = document.querySelector('.main-container');
+
+                if (quizContainer) {
+                    quizContainer.innerHTML = `
+                        <div class="quiz-header"><h2>الوصول مرفوض</h2></div>
+                        <div class="quiz-body">
+                            <p class="placeholder" style="color: var(--color-incorrect);">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
+                        </div>`;
+                } else if (mainContainer) {
+                    mainContainer.innerHTML = `
+                        <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
+                        <main>
+                            <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
+                        </main>`;
+                } else {
+                    document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">الوصول مرفوض</h1>`;
+                }
+                return; // إيقاف تنفيذ أي كود آخر
             }
-            return; // إيقاف تنفيذ أي كود آخر
+            
+            // (3) إذا نجح في الإجابة، سجل دخوله واحفظ الحالة في الجلسة
+            // (*** السطر الجديد والمهم ***)
+            sessionStorage.setItem('tawal_accessGranted_v1', 'true'); 
+            
+            fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId: STUDENT_ID })
+            });
         }
-        
-        // (3) إذا نجح في الإجابة، سجل دخوله في الخلفية
-        fetch(`${API_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: STUDENT_ID })
-        });
+        // (*** نهاية التعديل: إذا كان 'accessGranted' موجوداً، سيتخطى كل هذا ***)
     }
     // --- نهاية منطق الدخول الهجين ---
     
