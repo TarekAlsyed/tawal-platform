@@ -1,6 +1,7 @@
 /*
  * control_panel.js - Tawal Academy (v1.2.0 - View Student Activity Logs)
  * لوحة تحكم الإدارة
+ * (معدل بواسطة Gemini لإضافة خاصية الحظر)
  */
 
 // (هام) الرابط الخاص بالخادم الذي قمنا بنشره
@@ -108,7 +109,7 @@ async function fetchStats() {
 }
 
 /**
- * 2. جلب قائمة الطلاب
+ * 2. جلب قائمة الطلاب (*** معدل لإضافة زر الحظر ***)
  */
 async function fetchStudents() {
     const container = document.getElementById('students-container');
@@ -123,20 +124,32 @@ async function fetchStudents() {
         }
 
         let tableHtml = '<table class="admin-table">';
-        tableHtml += '<thead><tr><th>ID</th><th>الاسم (اضغط للعرض)</th><th>البريد الإلكتروني</th><th>تاريخ التسجيل</th></tr></thead>';
+        // (*** تعديل: إضافة عمود "إجراء" ***)
+        tableHtml += '<thead><tr><th>ID</th><th>الاسم (اضغط للعرض)</th><th>البريد الإلكتروني</th><th>تاريخ التسجيل</th><th>إجراء</th></tr></thead>';
         tableHtml += '<tbody>';
 
         students.forEach(student => {
+            // (*** تعديل: إضافة زر الحظر وحالة الحظر ***)
+            const isBanned = student.isBanned === 1;
+            const banButtonText = isBanned ? 'فك الحظر' : 'حظر';
+            const banButtonClass = isBanned ? 'unban-btn' : 'ban-btn';
+            
             tableHtml += `
                 <tr>
                     <td>${student.id}</td>
                     <td class="clickable-student" onclick="showStudentDetails(${student.id}, '${student.name}')">
-                        ${student.name}
+                        ${student.name} ${isBanned ? '<span style="color:var(--color-incorrect); font-size: 0.8em;">(محظور)</span>' : ''}
                     </td>
                     <td>${student.email}</td>
                     <td>${new Date(student.createdAt).toLocaleDateString('ar-EG')}</td>
+                    <td>
+                        <button class="${banButtonClass}" onclick="toggleBanStatus(${student.id}, ${isBanned ? 0 : 1})">
+                            ${banButtonText}
+                        </button>
+                    </td>
                 </tr>
             `;
+            // (*** نهاية التعديل ***)
         });
 
         tableHtml += '</tbody></table>';
@@ -147,6 +160,7 @@ async function fetchStudents() {
         container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل قائمة الطلاب.</p>';
     }
 }
+
 
 /**
  * 3. (جديد) جلب سجل الأنشطة العام
@@ -353,5 +367,31 @@ function closeModal() {
         modalStatsContainer.innerHTML = '';
         modalResultsContainer.innerHTML = '';
         modalActivityContainer.innerHTML = ''; // (جديد)
+    }
+}
+
+// (*** دالة جديدة: لإرسال طلب الحظر ***)
+async function toggleBanStatus(studentId, newStatus) {
+    if (!confirm(newStatus === 1 ? 'هل أنت متأكد أنك تريد حظر هذا الطالب؟' : 'هل أنت متأكد أنك تريد فك حظر هذا الطالب؟')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/admin/ban`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId: studentId, status: newStatus })
+        });
+        const data = await response.json();
+        
+        if (data.message) {
+            alert(data.message);
+            loadDashboard(); // إعادة تحميل كل شيء لإظهار التغيير
+        } else {
+            alert('فشل الإجراء: ' + data.error);
+        }
+    } catch (err) {
+        console.error('Error toggling ban status:', err);
+        alert('فشل الاتصال بالخادم.');
     }
 }
