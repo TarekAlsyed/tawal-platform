@@ -1,6 +1,7 @@
 /*
- * app.js - Tawal Academy (v10.8.0 - Re-sync with camelCase DB)
- * - (تعديل Gemini) إعادة كل أسماء الخانات إلى camelCase لتطابق قاعدة البيانات.
+ * app.js - Tawal Academy (v10.9.0 - Sync with Secure Server v4)
+ * - (تعديل Gemini) تغيير مفتاح localStorage إلى v4 لإجبار إعادة التسجيل.
+ * - (تعديل Gemini) إصلاح أسماء الخانات لـ snake_case (مثل studentData.is_banned).
  */
 
 /* =======================
