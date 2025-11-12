@@ -1,7 +1,7 @@
 /*
- * app.js - Tawal Academy (v10.9.0 - Sync with Secure Server v4)
+ * app.js - Tawal Academy (v10.9.1 - إصلاح Gemini لمشكلة Lowercase)
  * - (تعديل Gemini) تغيير مفتاح localStorage إلى v4 لإجبار إعادة التسجيل.
- * - (تعديل Gemini) إصلاح أسماء الخانات لـ snake_case (مثل studentData.is_banned).
+ * - (تعديل Gemini) إصلاح أسماء الخانات لـ lowercase (مثل studentData.isbanned).
  */
 
 /* =======================
@@ -339,8 +339,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const studentData = await response.json();
 
-            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
-            if (studentData.isBanned === 1) { // تحقق من حالة الحظر
+            // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
+            if (studentData.isbanned === 1) { // تحقق من حالة الحظر
                 alert('هذا الحساب محظور. تم تسجيل خروجك.');
                 // (*** بداية التعديل: تغيير المفتاح ***)
                 localStorage.removeItem('tawal_studentId_v4');
@@ -724,8 +724,8 @@ async function initDashboardPage() {
             throw new Error('فشل جلب البيانات من الخادم');
         }
 
-        // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
-        if (stats.totalQuizzes === 0) { 
+        // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
+        if (stats.totalquizzes === 0) { 
             container.innerHTML = '<p class="dashboard-empty-state">لم تقم بإجراء أي اختبارات بعد. ابدأ اختباراً وسيظهر تقدمك هنا!</p>';
             return;
         }
@@ -734,15 +734,15 @@ async function initDashboardPage() {
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalQuizzes}</p>
+                    <p class="summary-box-value">${stats.totalquizzes}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">متوسط النقاط</p>
-                    <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
+                    <p class="summary-box-value ${stats.averagescore >= 50 ? 'correct' : 'incorrect'}">${stats.averagescore}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
-                    <p class="summary-box-value level-excellent">${stats.bestScore}</p>
+                    <p class="summary-box-value level-excellent">${stats.bestscore}</p>
                 </div>
             </div>
             <div class="results-divider"></div>
@@ -750,11 +750,11 @@ async function initDashboardPage() {
 
         const resultsByQuiz = {};
         results.forEach(att => {
-            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
-            if (!resultsByQuiz[att.quizName]) {
-                resultsByQuiz[att.quizName] = [];
+            // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
+            if (!resultsByQuiz[att.quizname]) {
+                resultsByQuiz[att.quizname] = [];
             }
-            resultsByQuiz[att.quizName].push(att);
+            resultsByQuiz[att.quizname].push(att);
         });
 
         let subjectCardsHtml = '';
@@ -766,12 +766,12 @@ async function initDashboardPage() {
                 else if (att.score >= 150) scoreClass = 'level-good';
                 else if (att.score >= 50) scoreClass = 'level-pass';
                 
-                // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
+                // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
                 historyListHtml += `
                     <li class="history-item">
                         <span class="score ${scoreClass}">📈 ${att.score} نقطة</span>
-                        <span class="score-details">( ${att.correctAnswers} / ${att.totalQuestions} )</span>
-                        <span class="history-date">${new Date(att.completedAt).toLocaleDateString('ar-EG')}</span>
+                        <span class="score-details">( ${att.correctanswers} / ${att.totalquestions} )</span>
+                        <span class="history-date">${new Date(att.completedat).toLocaleDateString('ar-EG')}</span>
                     </li>
                 `;
             });
