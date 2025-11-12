@@ -1,6 +1,6 @@
 /*
- * control_panel.js - Tawal Academy (v2.1.0 - Resync with camelCase DB)
- * (معدل بواسطة Gemini ليتوافق مع الخادم المؤمّن v3 وإصلاح أسماء الخانات)
+ * control_panel.js - Tawal Academy (v2.1.1 - إصلاح Gemini لمشكلة Lowercase)
+ * (تم التعديل ليتوافق مع أسماء الخانات الفعلية القادمة من PostgreSQL)
  */
 
 // (هام) الرابط الخاص بالخادم
@@ -95,21 +95,21 @@ async function fetchStats() {
 
         if (stats.error) throw new Error(stats.error);
 
-        // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
+        // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
         container.innerHTML = `
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الطلاب</p>
-                    <p class="summary-box-value">${stats.totalStudents}</p>
+                    <p class="summary-box-value">${stats.totalstudents}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalQuizzes}</p>
+                    <p class="summary-box-value">${stats.totalquizzes}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">متوسط الدرجات (نقاط)</p>
-                    <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">
-                        ${stats.averageScore}
+                    <p class="summary-box-value ${stats.averagescore >= 50 ? 'correct' : 'incorrect'}">
+                        ${stats.averagescore}
                     </p>
                 </div>
             </div>
@@ -144,8 +144,8 @@ async function fetchStudents() {
         tableHtml += '<tbody>';
 
         students.forEach(student => {
-            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
-            const isBanned = student.isBanned === 1;
+            // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
+            const isBanned = student.isbanned === 1;
             const banButtonText = isBanned ? 'فك الحظر' : 'حظر';
             const banButtonClass = isBanned ? 'unban-btn' : 'ban-btn';
             
@@ -156,7 +156,7 @@ async function fetchStudents() {
                         ${student.name} ${isBanned ? '<span style="color:var(--color-incorrect); font-size: 0.8em;">(محظور)</span>' : ''}
                     </td>
                     <td>${student.email}</td>
-                    <td>${new Date(student.createdAt).toLocaleDateString('ar-EG')}</td>
+                    <td>${new Date(student.createdat).toLocaleDateString('ar-EG')}</td>
                     <td>
                         <button class="${banButtonClass}" onclick="toggleBanStatus(${student.id}, ${isBanned ? 0 : 1})">
                             ${banButtonText}
@@ -200,12 +200,12 @@ async function fetchActivityLogs() {
         tableHtml += '<tbody>';
 
         logs.slice(0, 20).forEach(log => {
-            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
+            // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
             tableHtml += `
                 <tr>
                     <td>${log.name}</td>
-                    <td>${log.activityType}</td>
-                    <td>${log.subjectName || '—'}</td>
+                    <td>${log.activitytype}</td>
+                    <td>${log.subjectname || '—'}</td>
                     <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                 </tr>
             `;
@@ -244,12 +244,12 @@ async function fetchLogs() {
         tableHtml += '<tbody>';
 
         logs.slice(0, 20).forEach(log => {
-            // (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
+            // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
             tableHtml += `
                 <tr>
                     <td>${log.name} (${log.email})</td>
-                    <td>${new Date(log.loginTime).toLocaleString('ar-EG')}</td>
-                    <td>${log.logoutTime ? new Date(log.logoutTime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
+                    <td>${new Date(log.logintime).toLocaleString('ar-EG')}</td>
+                    <td>${log.logouttime ? new Date(log.logouttime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
                     <td>${log.ip_address || 'N/A'}</td>
                 </tr>
             `;
@@ -299,7 +299,7 @@ async function showStudentDetails(studentId, studentName) {
         const results = await resultsResponse.json();
         const allActivities = await activityResponse.json();
 
-        // 3. عرض الإحصائيات (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
+        // 3. عرض الإحصائيات (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
         if (stats.error) {
             statsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
         } else {
@@ -307,21 +307,21 @@ async function showStudentDetails(studentId, studentName) {
                 <div class="dashboard-summary-grid">
                     <div class="summary-box">
                         <p class="summary-box-label">إجمالي الاختبارات</p>
-                        <p class="summary-box-value">${stats.totalQuizzes}</p>
+                        <p class="summary-box-value">${stats.totalquizzes}</p>
                     </div>
                     <div class="summary-box">
                         <p class="summary-box-label">متوسط النقاط</p>
-                        <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
+                        <p class="summary-box-value ${stats.averagescore >= 50 ? 'correct' : 'incorrect'}">${stats.averagescore}</p>
                     </div>
                     <div class="summary-box">
                         <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
-                        <p class="summary-box-value level-excellent">${stats.bestScore}</p>
+                        <p class="summary-box-value level-excellent">${stats.bestscore}</p>
                     </div>
                 </div>
             `;
         }
 
-        // 4. عرض جدول النتائج (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
+        // 4. عرض جدول النتائج (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
         if (results.error) {
             resultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
         } else if (results.length === 0) {
@@ -333,10 +333,10 @@ async function showStudentDetails(studentId, studentName) {
             results.forEach(att => {
                 tableHtml += `
                     <tr>
-                        <td>${att.quizName}</td>
+                        <td>${att.quizname}</td>
                         <td style="color: var(--primary-color); font-weight: bold;">${att.score}</td>
-                        <td>${att.correctAnswers} / ${att.totalQuestions}</td>
-                        <td>${new Date(att.completedAt).toLocaleString('ar-EG')}</td>
+                        <td>${att.correctanswers} / ${att.totalquestions}</td>
+                        <td>${new Date(att.completedat).toLocaleString('ar-EG')}</td>
                     </tr>
                 `;
             });
@@ -344,7 +344,7 @@ async function showStudentDetails(studentId, studentName) {
             resultsContainer.innerHTML = tableHtml;
         }
         
-        // 5. عرض جدول الأنشطة (بعد الفلترة) (*** تعديل Gemini: إصلاح حالة الأحرف لـ camelCase ***)
+        // 5. عرض جدول الأنشطة (بعد الفلترة) (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
         if (allActivities.error) {
              activityContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
         } else {
@@ -358,8 +358,8 @@ async function showStudentDetails(studentId, studentName) {
                 studentActivities.forEach(log => {
                     tableHtml += `
                         <tr>
-                            <td>${log.activityType}</td>
-                            <td>${log.subjectName || '—'}</td>
+                            <td>${log.activitytype}</td>
+                            <td>${log.subjectname || '—'}</td>
                             <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                         </tr>
                     `;
