@@ -12,34 +12,5 @@
       "type": "pdf"
     }
   ],
-  "images": [
-    {
-      "path": "images/geo_maps/1.jpg",
-      "caption": "صورة 1"
-    },
-    {
-      "path": "images/geo_maps/2.jpg",
-      "caption": "صورة 2"
-    },
-    {
-      "path": "images/geo_maps/3.jpg",
-      "caption": "صورة 3"
-    },
-    {
-      "path": "images/geo_maps/4.jpg",
-      "caption": "صورة 4"
-    },
-    {
-      "path": "images/geo_maps/5.jpg",
-      "caption": "صورة 5"
-    },
-    {
-      "path": "images/geo_maps/6.jpg",
-      "caption": "صورة 6"
-    },
-    {
-      "path": "images/geo_maps/7.jpg",
-      "caption": "صورة 7"
-    }
-  ]
+  "images": []
 }

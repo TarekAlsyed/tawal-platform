@@ -1,20 +1,22 @@
 /*
- * app.js - Tawal Academy (v10.9.1 - إصلاح Gemini لمشكلة Lowercase)
- * - (تعديل Gemini) تغيير مفتاح localStorage إلى v4 لإجبار إعادة التسجيل.
- * - (تعديل Gemini) إصلاح أسماء الخانات لـ lowercase (مثل studentData.isbanned).
+ * app.js - Tawal Academy (v10.0.0 - Backend Integration)
+ * - (تعديل جذري) ربط المنصة بالواجهة الخلفية (server.js).
+ * - إضافة نظام تسجيل الطلاب (الاسم والبريد الإلكتروني).
+ * - استبدال localStorage بحفظ النتائج على الخادم.
+ * - استبدال لوحة التقدم لتقرأ الإحصائيات من الخادم.
+ * - إزالة نظام كلمة السر القديم.
  */
 
 /* =======================
-   إعدادات الاتصال بالخادم
+   (جديد) إعدادات الاتصال بالخادم
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-let STUDENT_ID = localStorage.getItem('tawal_studentId_v4');
-let DEVICE_FINGERPRINT = null; 
+let STUDENT_ID = localStorage.getItem('tawal_studentId');
 
 /* =======================
    إعدادات ومفاتيح التخزين
    ======================= */
-const PROGRESS_KEY = 'tawalAcademyProgress_v1';
+const PROGRESS_KEY = 'tawalAcademyProgress_v1'; // (سيظل موجوداً كنسخة احتياطية مؤقتة)
 const DEFAULT_SUBJECT = 'gis_networks';
 
 const LOGO_SVG = `
@@ -26,9 +28,8 @@ const LOGO_SVG = `
 `;
 
 /* =======================
-   قائمة المواد
+   قائمة المواد (بدون حالة الجاهزية)
    ======================= */
-// ... (قائمة المواد كما هي، لا تغيير)
 const SUBJECTS = {
     gis_networks: {
         title: "تطبيقات نظم المعلومات الجغرافية فى الشبكات",
@@ -63,7 +64,6 @@ const SUBJECTS = {
 /* =======================
    مساعدة: الحصول على مفتاح المادة من URL
    ======================= */
-// ... (كما هي، لا تغيير)
 function getSubjectKey() {
     try {
         const params = new URLSearchParams(window.location.search);
@@ -74,32 +74,14 @@ function getSubjectKey() {
 }
 
 /* =======================
-   دوال الاتصال بالخادم (Backend)
+   (*** تعديل v10.0.0: دالة حفظ النتائج الجديدة ***)
    ======================= */
-// ... (كما هي، لا تغيير)
-function logActivity(activityType, subjectName = null) {
-    if (!STUDENT_ID) return; 
-    fetch(`${API_URL}/log-activity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            studentId: STUDENT_ID,
-            activityType: activityType,
-            subjectName: subjectName
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.id) console.log(`✓ تم تسجيل النشاط: ${activityType}`);
-    })
-    .catch(err => console.error('فشل تسجيل النشاط:', err));
-}
-
 function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     if (!STUDENT_ID) {
         console.error('لا يوجد معرف للطالب، لا يمكن حفظ النتيجة.');
         return;
     }
+
     fetch(`${API_URL}/quiz-results`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,12 +95,19 @@ function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.id) console.log('✓ تم حفظ النتيجة في قاعدة البيانات:', data.message);
-        else console.error('فشل حفظ النتيجة في قاعدة البيانات:', data.error);
+        if (data.id) {
+            console.log('✓ تم حفظ النتيجة في قاعدة البيانات:', data.message);
+        } else {
+            console.error('فشل حفظ النتيجة في قاعدة البيانات:', data.error);
+        }
     })
     .catch(err => console.error('خطأ فادح في الاتصال لحفظ النتيجة:', err));
 }
 
+
+/* =======================
+   (*** تعديل v9.1.2 ***)
+   ======================= */
 function loadSubjectData(subjectKey) {
     return new Promise((resolve, reject) => {
         if (!subjectKey || !SUBJECTS[subjectKey]) {
@@ -126,16 +115,19 @@ function loadSubjectData(subjectKey) {
             return;
         }
 
+        // (تعديل) المسار أصبح يشير إلى المجلد الفرعي الذي أنشأته
         const quizUrl = `data_${subjectKey}/data_${subjectKey}_quiz.json?v=${Date.now()}`;
         const summaryUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
 
+        // محاولة جلب ملف الأسئلة، أو إرجاع كائن فارغ إذا فشل (مثل 404)
         const fetchQuiz = fetch(quizUrl)
-            .then(response => response.ok ? response.json() : {})
+            .then(response => response.ok ? response.json() : {}) // إذا كان 404، أرجع {}
             .catch(error => {
                 console.warn(`Could not load quiz file for ${subjectKey}:`, error.message);
-                return {};
+                return {}; // إرجاع كائن فارغ عند فشل الشبكة
             });
 
+        // محاولة جلب ملف الملخص، أو إرجاع كائن فارغ إذا فشل
         const fetchSummary = fetch(summaryUrl)
             .then(response => response.ok ? response.json() : {})
             .catch(error => {
@@ -143,64 +135,36 @@ function loadSubjectData(subjectKey) {
                 return {};
             });
 
+        // انتظار اكتمال الطلبين (حتى لو فشلا)
         Promise.all([fetchQuiz, fetchSummary])
             .then(results => {
                 const quizData = results[0];
                 const summaryData = results[1];
-                const combinedData = { quizData: quizData, summaryData: summaryData };
+
+                // دمج النتائج في الهيكل الذي يتوقعه التطبيق
+                const combinedData = {
+                    quizData: quizData,
+                    summaryData: summaryData
+                };
+
                 resolve(combinedData);
             })
             .catch(error => {
+                // هذا الخطأ لا يفترض أن يحدث لأننا نعالج الأخطاء الفردية
                 console.error(`Unexpected error loading data for ${subjectKey}:`, error);
                 reject(error);
             });
     });
 }
+
+
 /* =======================
    DOMHelpers — الحصول على العناصر بأمان
    ======================= */
 function $(id) { return document.getElementById(id); }
 
 /* =======================
-   (دالة سؤال الدخول - v10.3.0)
-   ======================= */
-// ... (كما هي، لا تغيير)
-function checkAccessPermission(pageType = 'المحتوى') {
-    
-    const ACCESS_QUESTION = "هل صليت على النبي اليوم؟\n\nمفتاح الدخول: صلى الله عليه وسلم";
-    const KEYWORDS = ["صلي", "الله", "عليه", "وسلم", "صل"]; 
-
-    const userAnswer = prompt(ACCESS_QUESTION, "");
-
-    if (userAnswer === null) {
-        alert("تم إلغاء الدخول.");
-        return false;
-    }
-
-    function normalizeText(text) {
-        if (!text) return "";
-        return text
-            .replace(/[\u064B-\u0652]/g, '') // إزالة التشكيل
-            .replace(/ـ/g, '')               // إزالة التطويل
-            .replace(/[ى]/g, 'ي')            // توحيد الألف المقصورة
-            .replace(/صلِ/g, 'صل')           // إزالة الكسرة
-            .trim();
-    }
-
-    const normalizedInput = normalizeText(userAnswer);
-    const hasKeyword = KEYWORDS.some(keyword => normalizedInput.includes(keyword));
-
-    if (hasKeyword) {
-        return true; // Access Granted
-    } else {
-        alert(`الإجابة غير صحيحة. لا يمكن الوصول إلى ${pageType}.`);
-        return false; // Access Denied
-    }
-}
-
-
-/* =======================
-   (نظام التسجيل - معدل لبصمة الجهاز)
+   (*** تعديل v10.0.0: نظام التسجيل الجديد ***)
    ======================= */
 async function registerStudent() {
     const name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء إدخال اسمك (لربط نتائجك به):');
@@ -208,6 +172,7 @@ async function registerStudent() {
 
     if (!name || !email) {
         alert('يجب إدخال الاسم والبريد الإلكتروني للمتابعة.');
+        // إخفاء المحتوى بالكامل في حالة الرفض
         const quizContainer = document.querySelector('.quiz-container');
         const mainContainer = document.querySelector('.main-container');
         if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>الوصول مرفوض</h2></div>`;
@@ -219,42 +184,28 @@ async function registerStudent() {
         const response = await fetch(`${API_URL}/students/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                name, 
-                email, 
-                fingerprint: DEVICE_FINGERPRINT // (*** جديد: إرسال البصمة ***)
-            })
+            body: JSON.stringify({ name, email })
         });
-        
         const data = await response.json();
 
-        // الحالة 1: الحساب محظور (إما بالحساب أو بالبصمة)
-        if (response.status === 403) { 
-            alert(data.error);
-            const quizContainer = document.querySelector('.quiz-container');
-            const mainContainer = document.querySelector('.main-container');
-            if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>${data.error}</h2></div>`;
-            if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">${data.error}</h1></header>`;
+        if (data.id) {
+            // نجح التسجيل
+            STUDENT_ID = data.id;
+            localStorage.setItem('tawal_studentId', data.id);
+            localStorage.setItem('tawal_studentName', data.name);
+            alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
+            return true;
+        } else if (data.error && data.error.includes('UNIQUE')) {
+            // البريد مسجل، سنحاول جلب بياناته
+            // (ملاحظة: هذا يتطلب endpoint جديد في الخادم، لكننا سنتجاوزه الآن ونسجل دخوله)
+            alert(`أهلاً بعودتك يا ${name}! يبدو أنك مسجل بالفعل.`);
+            // (يجب إضافة دالة لجلب الـ ID من الإيميل، لكننا سنطلب منه التسجيل باسم مختلف مؤقتاً)
+            // لإعادة المحاولة
+            return await registerStudent(); 
+        } else {
+            alert('حدث خطأ أثناء التسجيل: ' + data.error);
             return false;
         }
-
-        // الحالة 2: بيانات خاطئة (اسم ممنوع، إيميل خطأ)
-        if (response.status === 400) {
-            alert(data.error);
-            return await registerStudent(); // اطلب منه التسجيل مرة أخرى
-        }
-        
-        // الحالة 3: نجاح
-        if (data.id) {
-            STUDENT_ID = data.id;
-            // (*** بداية التعديل: تغيير المفتاح ***)
-            localStorage.setItem('tawal_studentId_v4', data.id);
-            localStorage.setItem('tawal_studentName_v4', data.name);
-            // (*** نهاية التعديل ***)
-            alert(data.message); // سيعرض "تم التسجيل بنجاح" أو "أهلاً بعودتك!"
-            return true;
-        } 
-
     } catch (err) {
         console.error('فشل الاتصال بخادم التسجيل:', err);
         alert('لا يمكن الاتصال بالخادم. الرجاء التأكد من اتصالك بالإنترنت والمحاولة لاحقاً.');
@@ -263,138 +214,33 @@ async function registerStudent() {
 }
 
 
-/* ========================================================
-   (*** تعديل Gemini: "الحارس الأمني" لبصمة الجهاز والـ IP ***)
-   ======================================================== */
+/* =======================
+   تهيئة عند تحميل الصفحة (*** تعديل v10.0.0 ***)
+   ======================= */
 document.addEventListener('DOMContentLoaded', async () => {
-    
-    // (*** جديد: الخطوة 0 - جلب وفحص بصمة الجهاز والـ IP ***)
-    try {
-        const fp = await FingerprintJS.load();
-        const result = await fp.get();
-        DEVICE_FINGERPRINT = result.visitorId; // تخزين البصمة في المتغير العام
-
-        const response = await fetch(`${API_URL}/check-device`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fingerprint: DEVICE_FINGERPRINT })
-        });
-        
-        // (*** جديد: التحقق من حظر الـ IP ***)
-        if (response.status === 403) {
-            const data = await response.json();
-            alert(data.error); // سيعرض "الوصول مرفوض من هذا العنوان (IP)."
-            const quizContainer = document.querySelector('.quiz-container');
-            const mainContainer = document.querySelector('.main-container');
-            if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>${data.error}</h2></div>`;
-            if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">${data.error}</h1></header>`;
-            return; 
-        }
-
-        const data = await response.json();
-
-        if (data.banned === true) {
-            // هذا الجهاز (البصمة) محظور
-            alert('هذا الجهاز محظور من قبل الإدارة. لا يمكنك الوصول للمنصة.');
-            // إخفاء المحتوى بالكامل
-            const quizContainer = document.querySelector('.quiz-container');
-            const mainContainer = document.querySelector('.main-container');
-            if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>الجهاز محظور</h2></div>`;
-            if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">الجهاز محظور</h1></header>`;
-            return; // إيقاف تحميل أي شيء آخر
-        }
-        
-    } catch (err) {
-        console.error('فشل في فحص بصمة الجهاز:', err);
-        alert('حدث خطأ أثناء التحقق الأمني. سيتم إيقاف الصفحة.');
-        return;
-    }
-    // (*** نهاية الخطوة 0 ***)
-
-
-    // --- بداية منطق الدخول الهجين (الخطوات 1-5) ---
     initThemeToggle();
 
+    // (*** تعديل جديد: التحقق من التسجيل أولاً ***)
     if (!STUDENT_ID) {
-        // (1) مستخدم جديد تماماً (أو مستخدم قديم تم إجباره على التسجيل مجدداً)
         const success = await registerStudent();
         if (!success) {
-            return; 
+            // إيقاف تحميل الصفحة إذا فشل التسجيل
+            return;
         }
     } else {
-        // (2) مستخدم عائد: تحقق من الخادم أولاً للتأكد أنه غير محظور
-        try {
-            const response = await fetch(`${API_URL}/students/${STUDENT_ID}`);
-            if (!response.ok) {
-                // (*** جديد: إذا لم يتم العثور على الطالب، امسح الـ ID القديم ***)
-                alert('يبدو أن حسابك القديم لم يعد موجوداً. الرجاء التسجيل من جديد.');
-                // (*** بداية التعديل: تغيير المفتاح ***)
-                localStorage.removeItem('tawal_studentId_v4');
-                localStorage.removeItem('tawal_studentName_v4');
-                // (*** نهاية التعديل ***)
-                sessionStorage.removeItem('tawal_accessGranted_v1');
-                location.reload(); // إعادة تحميل الصفحة ليبدأ كزائر جديد
-                return;
-            }
-            
-            const studentData = await response.json();
-
-            // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
-            if (studentData.isbanned === 1) { // تحقق من حالة الحظر
-                alert('هذا الحساب محظور. تم تسجيل خروجك.');
-                // (*** بداية التعديل: تغيير المفتاح ***)
-                localStorage.removeItem('tawal_studentId_v4');
-                localStorage.removeItem('tawal_studentName_v4');
-                // (*** نهاية التعديل ***)
-                sessionStorage.removeItem('tawal_accessGranted_v1');
-                
-                const quizContainer = document.querySelector('.quiz-container');
-                const mainContainer = document.querySelector('.main-container');
-                if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>حساب محظور</h2></div>`;
-                if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">حساب محظور</h1></header>`;
-                return; // إيقاف تحميل الصفحة
-            }
-        } catch (err) {
-            console.error('Failed to verify student status', err);
-        }
-
-        // (3) مستخدم عائد (وغير محظور): اسأله سؤال الدخول
-        const accessGranted = sessionStorage.getItem('tawal_accessGranted_v1');
-        if (accessGranted !== 'true') {
-            if (!checkAccessPermission('المنصة')) {
-                // ... (كود إخفاء المحتوى) ...
-                const quizContainer = document.querySelector('.quiz-container');
-                const mainContainer = document.querySelector('.main-container');
-                if (quizContainer) {
-                    quizContainer.innerHTML = `
-                        <div class="quiz-header"><h2>الوصول مرفوض</h2></div>
-                        <div class="quiz-body">
-                            <p class="placeholder" style="color: var(--color-incorrect);">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                        </div>`;
-                } else if (mainContainer) {
-                    mainContainer.innerHTML = `
-                        <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
-                        <main>
-                            <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                        </main>`;
-                } else {
-                    document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">الوصول مرفوض</h1>`;
-                }
-                return; 
-            }
-            
-            // (4) إذا نجح في الإجابة
-            sessionStorage.setItem('tawal_accessGranted_v1', 'true'); 
-            fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentId: STUDENT_ID })
-            });
-        }
+        // (جديد) تسجيل الدخول في الخادم عند كل زيارة
+        fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId: STUDENT_ID })
+        });
+        // (لا نحتاج لانتظار الرد، ليكمل في الخلفية)
     }
     
-    
-    // (5) إذا نجح، قم بتحميل محتوى الصفحة كالمعتاد
+    // (*** نهاية التعديل ***)
+
+
+    // detect page by presence of elements
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
@@ -419,7 +265,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* =======================
    Theme toggle بسيطة
    ======================= */
-// ... (كما هي، لا تغيير)
 function initThemeToggle() {
     const btn = $('theme-toggle-btn');
     const saved = localStorage.getItem('theme') || 'dark'; // الوضع الداكن افتراضيًا
@@ -436,19 +281,20 @@ function initThemeToggle() {
 }
 
 /* ==================================
-   Index page
+   Index page — (المحرك الذكي الجديد v5.2)
    ================================== */
-// ... (كما هي، لا تغيير)
 async function initIndexPage() {
     const grid = $('subjects-grid');
     if (!grid) return;
     grid.innerHTML = '';
     
+    // (جديد) تحميل اللوجو في Header
     const logoEl = document.querySelector('.main-header .logo');
     if(logoEl) {
         logoEl.innerHTML = LOGO_SVG;
     }
     
+    // 1. عرض كل البطاقات (كلها معطلة افتراضياً)
     for (const key in SUBJECTS) {
         const s = SUBJECTS[key];
         const card = document.createElement('div');
@@ -466,6 +312,7 @@ async function initIndexPage() {
         grid.appendChild(card);
     }
     
+    // 2. (جديد) تحميل البيانات وتفعيل الأزرار المتاح لها محتوى
     const allCards = grid.querySelectorAll('.subject-card');
 
     for (const card of allCards) {
@@ -476,6 +323,7 @@ async function initIndexPage() {
     }
 
 
+    // 3. تفعيل منطق البحث
     const searchBar = $('search-bar');
     const noResultsEl = $('no-results-message');
 
@@ -507,6 +355,8 @@ async function initIndexPage() {
     }
 }
 
+// (*** تعديل جوهري هنا v9.1.0 ***)
+// دالة مساعدة لتحميل البيانات وتفعيل الأزرار
 async function loadAndEnableCard(key, cardElement) {
     try {
         const data = await loadSubjectData(key); 
@@ -514,6 +364,7 @@ async function loadAndEnableCard(key, cardElement) {
         const quizBtn = cardElement.querySelector('.btn-quiz');
         const summaryBtn = cardElement.querySelector('.btn-summary');
 
+        // 1. التحقق من بيانات الاختبار (data.quizData الآن هو الملف _quiz.json)
         if (data && data.quizData && data.quizData.questions && data.quizData.questions.length > 0) {
             if(quizBtn) {
                 quizBtn.classList.remove('disabled');
@@ -521,6 +372,8 @@ async function loadAndEnableCard(key, cardElement) {
                 quizBtn.setAttribute('aria-disabled', 'false');
             }
         }
+        
+        // 2. التحقق من بيانات الملخص (data.summaryData الآن هو الملف _summary.json)
         
         const hasNewFiles = data && data.summaryData && data.summaryData.files && data.summaryData.files.length > 0;
         const hasNewImages = data && data.summaryData && data.summaryData.images && data.summaryData.images.length > 0;
@@ -541,9 +394,8 @@ async function loadAndEnableCard(key, cardElement) {
 
 
 /* =======================
-   Summary page (v10.1.0)
+   Summary page (*** تعديل v10.0.0: إزالة كلمة السر ***)
    ======================= */
-// ... (كما هي، لا تغيير)
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     
@@ -568,8 +420,7 @@ async function initSummaryPage(subjectKey) {
         const data = await loadSubjectData(subjectKey); 
         
         if (data && data.summaryData && data.summaryData.title) {
-            const subjectTitle = data.summaryData.title || SUBJECTS[subjectKey].title;
-            if (titleEl) titleEl.innerText = subjectTitle;
+            if (titleEl) titleEl.innerText = data.summaryData.title || SUBJECTS[subjectKey].title;
             
             const backBtn = document.createElement('a');
             backBtn.href = 'index.html';
@@ -584,7 +435,7 @@ async function initSummaryPage(subjectKey) {
             if (hasFiles || hasImages) {
                 if (tabsContainer) tabsContainer.style.display = 'flex';
 
-                // ملء الملفات
+                // ملء الملفات (PDF/Word)
                 if (hasFiles) {
                     let filesHtml = '<ul class="file-download-list">';
                     data.summaryData.files.forEach(file => {
@@ -633,8 +484,6 @@ async function initSummaryPage(subjectKey) {
                         imagesContentEl.style.display = 'none';
                         filesTab.classList.add('active');
                         imagesTab.classList.remove('active');
-                        // تسجيل النشاط
-                        logActivity('Viewed Summary Files', subjectTitle);
                     });
                 }
                 if (imagesTab) {
@@ -643,14 +492,11 @@ async function initSummaryPage(subjectKey) {
                         imagesContentEl.style.display = 'block';
                         filesTab.classList.remove('active');
                         imagesTab.classList.add('active');
-                        // تسجيل النشاط
-                        logActivity('Viewed Image Gallery', subjectTitle);
                     });
                 }
                 
-                // تحديد التبويب الافتراضي وتسجيل أول نشاط
                 if (hasFiles) {
-                    filesTab.click(); 
+                    filesTab.click();
                 } else if (hasImages) {
                     imagesTab.click();
                 }
@@ -658,11 +504,8 @@ async function initSummaryPage(subjectKey) {
             } else if (hasOldContent) {
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
-                
                 if (filesContentEl) filesContentEl.innerHTML = data.summaryData.content;
                 if (filesContentEl) filesContentEl.appendChild(backBtn);
-                logActivity('Viewed Summary (Old)', subjectTitle);
-
             } else {
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
@@ -700,7 +543,7 @@ async function initSummaryPage(subjectKey) {
 
 
 /* =====================================
-   لوحة التقدم (تقرأ من الخادم) (*** معدلة ***)
+   (*** تعديل v10.0.0: لوحة التقدم الجديدة ***)
    ===================================== */
 async function initDashboardPage() {
     const container = $('dashboard-content');
@@ -711,9 +554,11 @@ async function initDashboardPage() {
         return;
     }
     
+    // إظهار رسالة تحميل أولية
     container.innerHTML = '<p class="dashboard-empty-state">جاري تحميل إحصائياتك من الخادم...</p>';
 
     try {
+        // جلب الإحصائيات ونتائج الاختبارات من الخادم
         const statsResponse = await fetch(`${API_URL}/students/${STUDENT_ID}/stats`);
         const stats = await statsResponse.json();
 
@@ -724,37 +569,37 @@ async function initDashboardPage() {
             throw new Error('فشل جلب البيانات من الخادم');
         }
 
-        // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
-        if (stats.totalquizzes === 0) { 
+        if (stats.totalQuizzes === 0) {
             container.innerHTML = '<p class="dashboard-empty-state">لم تقم بإجراء أي اختبارات بعد. ابدأ اختباراً وسيظهر تقدمك هنا!</p>';
             return;
         }
-        
+
+        // بناء HTML للإحصائيات العامة
         const summaryHtml = `
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalquizzes}</p>
+                    <p class="summary-box-value">${stats.totalQuizzes}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">متوسط النقاط</p>
-                    <p class="summary-box-value ${stats.averagescore >= 50 ? 'correct' : 'incorrect'}">${stats.averagescore}</p>
+                    <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
-                    <p class="summary-box-value level-excellent">${stats.bestscore}</p>
+                    <p class="summary-box-value level-excellent">${stats.bestScore}</p>
                 </div>
             </div>
             <div class="results-divider"></div>
         `;
 
+        // تجميع النتائج حسب اسم الاختبار
         const resultsByQuiz = {};
         results.forEach(att => {
-            // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
-            if (!resultsByQuiz[att.quizname]) {
-                resultsByQuiz[att.quizname] = [];
+            if (!resultsByQuiz[att.quizName]) {
+                resultsByQuiz[att.quizName] = [];
             }
-            resultsByQuiz[att.quizname].push(att);
+            resultsByQuiz[att.quizName].push(att);
         });
 
         let subjectCardsHtml = '';
@@ -762,16 +607,15 @@ async function initDashboardPage() {
             let historyListHtml = '<ul class="history-list">';
             resultsByQuiz[quizName].forEach(att => {
                 let scoreClass = 'level-fail';
-                if (att.score >= 300) scoreClass = 'level-excellent';
+                if (att.score >= 300) scoreClass = 'level-excellent'; // (مثال، يمكنك تعديل المستويات)
                 else if (att.score >= 150) scoreClass = 'level-good';
                 else if (att.score >= 50) scoreClass = 'level-pass';
-                
-                // (*** تعديل Gemini: إصلاح الأسماء إلى lowercase ***)
+
                 historyListHtml += `
                     <li class="history-item">
                         <span class="score ${scoreClass}">📈 ${att.score} نقطة</span>
-                        <span class="score-details">( ${att.correctanswers} / ${att.totalquestions} )</span>
-                        <span class="history-date">${new Date(att.completedat).toLocaleDateString('ar-EG')}</span>
+                        <span class="score-details">( ${att.correctAnswers} / ${att.totalQuestions} )</span>
+                        <span class="history-date">${new Date(att.completedAt).toLocaleDateString('ar-EG')}</span>
                     </li>
                 `;
             });
@@ -795,9 +639,8 @@ async function initDashboardPage() {
 
 
 /* =======================
-   Quiz page init
+   Quiz page init (*** تعديل v10.0.0: إزالة كلمة السر ***)
    ======================= */
-// ... (كما هي، لا تغيير)
 async function initQuizPage(subjectKey) {
     const titleEl = $('quiz-title');
     const questionTextEl = $('question-text');
@@ -824,9 +667,6 @@ async function initQuizPage(subjectKey) {
             if (quizFooter) quizFooter.style.display = 'none';
             return;
         }
-        
-        logActivity('Started Quiz', quizObj.title || SUBJECTS[subjectKey].title);
-        
         runQuizEngine(quizObj, subjectKey);
 
     } catch (e) {
@@ -838,9 +678,8 @@ async function initQuizPage(subjectKey) {
 }
 
 /* =======================
-   المحرك الرئيسي للاختبار (v9.1.2)
+   المحرك الرئيسي للاختبار (v9.1.2 - إصلاح تحليل الأخطاء)
    ======================= */
-// ... (كما هي، لا تغيير)
 function runQuizEngine(quizObj, subjectKey) {
     // عناصر DOM
     const quizTitleEl = $('quiz-title');
@@ -860,13 +699,19 @@ function runQuizEngine(quizObj, subjectKey) {
     let questionsShuffled = [...allQuestions].sort(() => Math.random() - 0.5);
     let currentIndex = 0;
     
+    // (مهم) نحتفظ بالنظامين: النقاط والعدد
     let totalScore = 0; 
     let correctCount = 0; 
+    
     let incorrectList = []; 
+    
+    // متغير لحساب وقت الإجابة
     let questionStartTime = 0;
 
+    // عرض عنوان الاختبار
     if (quizTitleEl) quizTitleEl.innerText = quizObj.title || SUBJECTS[subjectKey]?.title || 'اختبار';
 
+    // دالة بدء الاختبار مع خيار مصفوفة أسئلة مخصصة
     function startQuiz(questionsToUse = allQuestions) {
         const isReviewMode = questionsToUse !== allQuestions;
 
@@ -895,6 +740,8 @@ function runQuizEngine(quizObj, subjectKey) {
         loadQuestion();
     }
 
+
+    // تحميل سؤال
     function loadQuestion() {
         resetState();
         const currentQuestion = questionsShuffled[currentIndex];
@@ -909,6 +756,7 @@ function runQuizEngine(quizObj, subjectKey) {
             progressBar.style.width = `${percent}%`;
         }
 
+        // TF
         if (currentQuestion.type === 'tf') {
             if (tfContainer) {
                 tfContainer.style.display = 'flex';
@@ -921,6 +769,8 @@ function runQuizEngine(quizObj, subjectKey) {
                 });
             }
             if (mcContainer) mcContainer.style.display = 'none';
+
+        // MC
         } else if (currentQuestion.type === 'mc') {
             if (mcContainer) {
                 mcContainer.style.display = 'flex';
@@ -940,13 +790,19 @@ function runQuizEngine(quizObj, subjectKey) {
                 });
             }
             if (tfContainer) tfContainer.style.display = 'none';
+        } else {
+            if (tfContainer) tfContainer.style.display = 'none';
+            if (mcContainer) mcContainer.style.display = 'none';
         }
 
         if (feedbackEl) { feedbackEl.innerText = ''; feedbackEl.className = 'feedback'; }
         if (nextBtn) nextBtn.disabled = true;
+
+        // بدء عداد الوقت للسؤال
         questionStartTime = Date.now();
     }
 
+    // إعادة ضبط الستايلات والأزرار
     function resetState() {
         if (tfContainer) {
             const tfBtns = tfContainer.querySelectorAll('.option-btn');
@@ -958,6 +814,7 @@ function runQuizEngine(quizObj, subjectKey) {
         }
     }
 
+    // معالجة اختيار TF
     function handleSelectTF(btn) {
         const val = String(btn.dataset.answer).toLowerCase() === 'true';
         const cq = questionsShuffled[currentIndex];
@@ -965,6 +822,7 @@ function runQuizEngine(quizObj, subjectKey) {
         finalizeAnswer(btn, val === correctNormalized);
     }
 
+    // معالجة اختيار MC
     function handleSelectMC(btn) {
         const sel = Number.isNaN(parseInt(btn.dataset.index, 10)) ? null : parseInt(btn.dataset.index, 10);
         const cq = questionsShuffled[currentIndex];
@@ -972,6 +830,7 @@ function runQuizEngine(quizObj, subjectKey) {
         finalizeAnswer(btn, sel === correct);
     }
 
+    // إنهاء تعامل الإجابة
     function finalizeAnswer(buttonClicked, isCorrect) {
         const allBtns = document.querySelectorAll('.option-btn');
         allBtns.forEach(b => b.disabled = true);
@@ -980,19 +839,22 @@ function runQuizEngine(quizObj, subjectKey) {
         const timeTakenInSeconds = (Date.now() - questionStartTime) / 1000;
 
         if (isCorrect) {
-            correctCount++;
+            correctCount++; // (النظام القديم) عد 1+
             let basePoints = 0;
             let timeBonus = 0;
 
+            // (النظام الجديد) 1. حساب نقاط الصعوبة
+            // (*** تعديل هنا v9.1.1 ***)
             switch (currentQuestion.difficulty) {
                 case 'easy': case 'سهل':
                     basePoints = 10; break;
                 case 'hard': case 'صعب':
                     basePoints = 30; break;
-                default: 
+                default: // 'medium' أو 'متوسط' أو أي قيمة أخرى
                     basePoints = 20; break;
             }
 
+            // (النظام الجديد) 2. حساب نقاط السرعة
             const isReviewMode = questionsShuffled.length !== allQuestions.length;
             if (!isReviewMode) {
                 if (timeTakenInSeconds < 5) timeBonus = 10; 
@@ -1035,6 +897,7 @@ function runQuizEngine(quizObj, subjectKey) {
         }
     }
 
+    // زر التالي
     if (nextBtn) {
         nextBtn.onclick = () => {
             if (currentIndex < questionsShuffled.length - 1) {
@@ -1046,29 +909,35 @@ function runQuizEngine(quizObj, subjectKey) {
         };
     }
 
+    // عرض النتائج (v9.1.2 - إصلاح تحليل الأخطاء للغة العربية)
     function showResults() {
-        const totalQuestions = questionsShuffled.length;
+        const totalQuestions = questionsShuffled.length; // (النظام القديم)
         const isReviewMode = questionsShuffled.length !== allQuestions.length;
         
+        // (النظام الجديد) حساب أقصى نقاط
         let maxPossibleScore = 0;
         let baseMaxScore = 0; 
         
         allQuestions.forEach(q => {
             let basePoints = 0;
+            // (*** تعديل هنا v9.1.1 ***)
             switch (q.difficulty) {
                 case 'easy': case 'سهل':
                     basePoints = 10; break;
                 case 'hard': case 'صعب':
                     basePoints = 30; break;
-                default:
+                default: // 'medium' أو 'متوسط' أو أي قيمة أخرى
                     basePoints = 20; break;
             }
             baseMaxScore += basePoints;
             maxPossibleScore += (basePoints + 10);
         });
 
+        // (النظام الجديد) حساب النسبة المئوية
         const percent = (baseMaxScore > 0) ? Math.round((totalScore / baseMaxScore) * 100) : 0;
         
+        
+        // (*** تعديل v10.0.0: حفظ النتيجة في الخادم ***)
         if (!isReviewMode) { 
             saveQuizResult(
                 quizObj.title || 'اختبار', 
@@ -1087,6 +956,7 @@ function runQuizEngine(quizObj, subjectKey) {
             
             const questionsForReview = incorrectList;
             
+            // ... (منطق تحليل الأخطاء والنصائح)
             const errorByDifficulty = { easy: 0, medium: 0, hard: 0 };
             if (questionsForReview.length > 0) {
                 const byTopic = {};
@@ -1095,9 +965,10 @@ function runQuizEngine(quizObj, subjectKey) {
                     byTopic[t] = (byTopic[t] || 0) + 1;
                     const d = q.difficulty || 'medium';
                     
+                    // (*** تعديل هنا v9.1.1 ***)
                     if (d === 'easy' || d === 'سهل') errorByDifficulty.easy++;
                     else if (d === 'hard' || d === 'صعب') errorByDifficulty.hard++;
-                    else errorByDifficulty.medium++;
+                    else errorByDifficulty.medium++; // الباقي متوسط
                 });
                 
                 let worst = ''; let maxErr = 0;
@@ -1119,7 +990,7 @@ function runQuizEngine(quizObj, subjectKey) {
                 errorListHtml = '<p>لا توجد أخطاء — أحسنت!</p>';
             }
             
-            const shareText = `🌍 حصلت على ${totalScore} نقطة (${correctCount} / ${totalQuestions}) في اختبار "${quizObj.title}"! هل يمكنك تحقيق نتيجة أفضل؟ ${window.location.origin}/tawal-platform/`;
+            const shareText = `🌍 حصلت على ${totalScore} نقطة (${correctCount} / ${totalQuestions}) في اختبار "${quizObj.title}"! هل يمكنك تحقيق نتيجة أفضل؟ ${window.location.origin}/quiz-project2/`;
             
             const chartPercent = percent > 100 ? 100 : percent;
 
@@ -1213,7 +1084,7 @@ function runQuizEngine(quizObj, subjectKey) {
             navigator.share({
                 title: 'نتيجة اختبار Tawal Academy',
                 text: text,
-                url: window.location.origin + '/tawal-platform/'
+                url: window.location.origin + '/quiz-project2/'
             }).catch((error) => {
                  if (error.name !== 'AbortError') { 
                      copyToClipboard(text);
