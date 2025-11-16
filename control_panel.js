@@ -1,5 +1,5 @@
 /*
- * admin.js - Tawal Academy (v1.0.0)
+ * control_panel.js - Tawal Academy (v1.2.0 - View Student Activity Logs)
  * لوحة تحكم الإدارة
  */
 
@@ -7,8 +7,16 @@
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
 // (هام) كلمة سر الإدارة
-// يمكنك تغيير 'admin123' إلى أي كلمة سر تريدها
 const ADMIN_PASSWORD = 'T357891$';
+
+// (جديد) جلب عناصر النافذة المنبثقة
+const modal = document.getElementById('student-modal');
+const modalCloseBtn = document.getElementById('modal-close-btn');
+const modalStudentName = document.getElementById('modal-student-name');
+const modalStatsContainer = document.getElementById('modal-stats-container');
+const modalResultsContainer = document.getElementById('modal-results-container');
+const modalActivityContainer = document.getElementById('modal-activity-container'); // (جديد)
+
 
 /**
  * دالة رئيسية يتم تشغيلها عند تحميل الصفحة
@@ -25,6 +33,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. إذا كانت كلمة السر صحيحة، قم بتحميل البيانات
     loadDashboard();
+
+    // 3. ربط أزرار إغلاق النافذة
+    if (modalCloseBtn) {
+        modalCloseBtn.onclick = () => closeModal();
+    }
+    if (modal) {
+        modal.onclick = (event) => {
+            if (event.target == modal) {
+                closeModal();
+            }
+        };
+    }
 });
 
 /**
@@ -40,13 +60,14 @@ function checkAdminPassword() {
 }
 
 /**
- * تحميل جميع بيانات لوحة التحكم
+ * تحميل جميع بيانات لوحة التحكم (*** تم التعديل ***)
  */
 async function loadDashboard() {
     // جلب الإحصائيات والطلاب والسجلات في نفس الوقت
     await Promise.all([
         fetchStats(),
         fetchStudents(),
+        fetchActivityLogs(), // (جديد)
         fetchLogs()
     ]);
 }
@@ -102,14 +123,16 @@ async function fetchStudents() {
         }
 
         let tableHtml = '<table class="admin-table">';
-        tableHtml += '<thead><tr><th>ID</th><th>الاسم</th><th>البريد الإلكتروني</th><th>تاريخ التسجيل</th></tr></thead>';
+        tableHtml += '<thead><tr><th>ID</th><th>الاسم (اضغط للعرض)</th><th>البريد الإلكتروني</th><th>تاريخ التسجيل</th></tr></thead>';
         tableHtml += '<tbody>';
 
         students.forEach(student => {
             tableHtml += `
                 <tr>
                     <td>${student.id}</td>
-                    <td>${student.name}</td>
+                    <td class="clickable-student" onclick="showStudentDetails(${student.id}, '${student.name}')">
+                        ${student.name}
+                    </td>
                     <td>${student.email}</td>
                     <td>${new Date(student.createdAt).toLocaleDateString('ar-EG')}</td>
                 </tr>
@@ -126,7 +149,47 @@ async function fetchStudents() {
 }
 
 /**
- * 3. جلب سجلات الدخول
+ * 3. (جديد) جلب سجل الأنشطة العام
+ */
+async function fetchActivityLogs() {
+    const container = document.getElementById('activity-logs-container');
+    try {
+        const response = await fetch(`${API_URL}/admin/activity-logs`);
+        const logs = await response.json();
+
+        if (logs.error) throw new Error(logs.error);
+        if (logs.length === 0) {
+            container.innerHTML = '<p class="dashboard-empty-state">لا توجد أنشطة مسجلة حتى الآن.</p>';
+            return;
+        }
+
+        let tableHtml = '<table class="admin-table">';
+        tableHtml += '<thead><tr><th>الطالب</th><th>النشاط</th><th>المادة</th><th>الوقت</th></tr></thead>';
+        tableHtml += '<tbody>';
+
+        // عرض آخر 20 نشاط عام
+        logs.slice(0, 20).forEach(log => {
+            tableHtml += `
+                <tr>
+                    <td>${log.name}</td>
+                    <td>${log.activityType}</td>
+                    <td>${log.subjectName || '—'}</td>
+                    <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
+                </tr>
+            `;
+        });
+
+        tableHtml += '</tbody></table>';
+        container.innerHTML = tableHtml;
+
+    } catch (err) {
+        console.error('Error fetching activity logs:', err);
+        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
+    }
+}
+
+/**
+ * 4. جلب سجلات الدخول
  */
 async function fetchLogs() {
     const container = document.getElementById('logs-container');
@@ -144,7 +207,6 @@ async function fetchLogs() {
         tableHtml += '<thead><tr><th>اسم الطالب</th><th>وقت الدخول</th><th>وقت الخروج</th></tr></thead>';
         tableHtml += '<tbody>';
 
-        // عرض آخر 20 سجل فقط
         logs.slice(0, 20).forEach(log => {
             tableHtml += `
                 <tr>
@@ -161,5 +223,135 @@ async function fetchLogs() {
     } catch (err) {
         console.error('Error fetching logs:', err);
         container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجلات الدخول.</p>';
+    }
+}
+
+/*
+ * =====================================
+ * (*** معدل: دوال النافذة المنبثقة ***)
+ * =====================================
+ */
+
+/**
+ * (ملاحظة) نحتاج إلى تعديل الخادم لإضافة رابط جلب الأنشطة لطالب معين
+ * في الوقت الحالي، سنقوم بفلترة الأنشطة التي تم جلبها بالفعل (غير دقيق لكنه سريع)
+ * (التطوير المستقبلي: تعديل الخادم لإضافة /api/students/:id/activity-logs)
+ */
+
+/**
+ * إظهار النافذة المنبثقة وتحميل بيانات الطالب
+ */
+async function showStudentDetails(studentId, studentName) {
+    if (!modal) return;
+
+    // 1. فتح النافذة وإظهار التحميل
+    modal.style.display = 'block';
+    modalStudentName.innerText = `بيانات الطالب: ${studentName}`;
+    modalStatsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الإحصائيات...</p>';
+    modalResultsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل النتائج...</p>';
+    modalActivityContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الأنشطة...</p>';
+
+    // 2. جلب البيانات (الإحصائيات والنتائج والأنشطة)
+    try {
+        // (تعديل) جلب 3 أنواع من البيانات
+        const [statsResponse, resultsResponse, activityResponse] = await Promise.all([
+            fetch(`${API_URL}/students/${studentId}/stats`),
+            fetch(`${API_URL}/students/${studentId}/results`),
+            fetch(`${API_URL}/admin/activity-logs`) // (مؤقت: جلب كل الأنشطة ثم الفلترة)
+        ]);
+
+        const stats = await statsResponse.json();
+        const results = await resultsResponse.json();
+        const allActivities = await activityResponse.json();
+
+        // 3. عرض الإحصائيات
+        if (stats.error) {
+            modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
+        } else {
+            modalStatsContainer.innerHTML = `
+                <div class="dashboard-summary-grid">
+                    <div class="summary-box">
+                        <p class="summary-box-label">إجمالي الاختبارات</p>
+                        <p class="summary-box-value">${stats.totalQuizzes}</p>
+                    </div>
+                    <div class="summary-box">
+                        <p class="summary-box-label">متوسط النقاط</p>
+                        <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
+                    </div>
+                    <div class="summary-box">
+                        <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
+                        <p class="summary-box-value level-excellent">${stats.bestScore}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 4. عرض جدول النتائج
+        if (results.error) {
+            modalResultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
+        } else if (results.length === 0) {
+            modalResultsContainer.innerHTML = '<p class="dashboard-empty-state">لم يقم هذا الطالب بإجراء أي اختبارات بعد.</p>';
+        } else {
+            let tableHtml = '<table class="admin-table">';
+            tableHtml += '<thead><tr><th>اسم الاختبار</th><th>النقاط</th><th>الإجابات</th><th>التاريخ</th></tr></thead>';
+            tableHtml += '<tbody>';
+            results.forEach(att => {
+                tableHtml += `
+                    <tr>
+                        <td>${att.quizName}</td>
+                        <td style="color: var(--primary-color); font-weight: bold;">${att.score}</td>
+                        <td>${att.correctAnswers} / ${att.totalQuestions}</td>
+                        <td>${new Date(att.completedAt).toLocaleString('ar-EG')}</td>
+                    </tr>
+                `;
+            });
+            tableHtml += '</tbody></table>';
+            modalResultsContainer.innerHTML = tableHtml;
+        }
+        
+        // 5. (جديد) عرض جدول الأنشطة (بعد الفلترة)
+        if (allActivities.error) {
+             modalActivityContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
+        } else {
+            const studentActivities = allActivities.filter(log => log.name === studentName);
+            if (studentActivities.length === 0) {
+                 modalActivityContainer.innerHTML = '<p class="dashboard-empty-state">لا توجد أنشطة مسجلة لهذا الطالب.</p>';
+            } else {
+                let tableHtml = '<table class="admin-table">';
+                tableHtml += '<thead><tr><th>النشاط</th><th>المادة</th><th>الوقت</th></tr></thead>';
+                tableHtml += '<tbody>';
+                studentActivities.forEach(log => {
+                    tableHtml += `
+                        <tr>
+                            <td>${log.activityType}</td>
+                            <td>${log.subjectName || '—'}</td>
+                            <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
+                        </tr>
+                    `;
+                });
+                tableHtml += '</tbody></table>';
+                modalActivityContainer.innerHTML = tableHtml;
+            }
+        }
+
+    } catch (err) {
+        console.error('Error fetching student details:', err);
+        modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل الاتصال بالخادم.</p>';
+        modalResultsContainer.innerHTML = '';
+        modalActivityContainer.innerHTML = '';
+    }
+}
+
+/**
+ * إغلاق النافذة المنبثقة
+ */
+function closeModal() {
+    if (modal) {
+        modal.style.display = 'none';
+        // مسح البيانات القديمة عند الإغلاق
+        modalStudentName.innerText = '...';
+        modalStatsContainer.innerHTML = '';
+        modalResultsContainer.innerHTML = '';
+        modalActivityContainer.innerHTML = ''; // (جديد)
     }
 }
