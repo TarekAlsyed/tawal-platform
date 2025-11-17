@@ -1,7 +1,7 @@
 /*
- * app.js - Tawal Academy (v10.4.0 - Force Re-Login v3)
- * - (تعديل) تغيير مفتاح localStorage لإجبار جميع المستخدمين على إعادة التسجيل (v3).
- * - (جديد) إضافة دالة logActivity لإرسال أنشطة الطالب (فتح الملخص/الصور) إلى الخادم.
+ * app.js - Tawal Academy (v10.5.0 - Dynamic Asset Check)
+ * - (جديد) إضافة دالة fileExists للتحقق من وجود الملفات قبل عرضها.
+ * - (تعديل) تحديث initSummaryPage لاستخدام fileExists وعدم عرض الروابط المكسورة.
  */
 
 /* =======================
@@ -437,10 +437,27 @@ async function loadAndEnableCard(key, cardElement) {
     }
 }
 
+/*
+ * (*** جديد v10.5.0 ***)
+ * دالة مساعدة للتحقق من وجود ملف على الخادم
+ * نستخدم 'HEAD' لطلب خفيف لا يجلب الملف كاملاً، فقط نتأكد من حالته
+ */
+async function fileExists(url) {
+    try {
+        const response = await fetch(url, { method: 'HEAD' });
+        // response.ok (true) = السيرفر رد بـ 200 (موجود)
+        // response.ok (false) = السيرفر رد بـ 404 (غير موجود)
+        return response.ok;
+    } catch (e) {
+        // فشل في الاتصال (مثل خطأ شبكة أو CORS إذا كان على دومين مختلف)
+        console.warn(`File check failed for ${url}: ${e.message}`);
+        return false;
+    }
+}
 
-/* =======================
-   Summary page (v10.1.0)
-   ======================= */
+/* * (*** معدل v10.5.0 ***)
+ * تم تعديل هذه الدالة بالكامل لتستخدم fileExists
+ */
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     
@@ -472,53 +489,96 @@ async function initSummaryPage(subjectKey) {
             backBtn.href = 'index.html';
             backBtn.className = 'card-btn next-btn';
             backBtn.innerText = '🏠 العودة للرئيسية';
-            backBtn.style.marginTop = '2rem'; // إضافة مسافة
+            backBtn.style.marginTop = '2rem';
 
-            const hasFiles = data.summaryData.files && data.summaryData.files.length > 0;
-            const hasImages = data.summaryData.images && data.summaryData.images.length > 0;
+            const hasFilesList = data.summaryData.files && data.summaryData.files.length > 0;
+            const hasImagesList = data.summaryData.images && data.summaryData.images.length > 0;
             const hasOldContent = data.summaryData.content && data.summaryData.content.length > 100;
+            
+            let foundFilesCount = 0;
+            let foundImagesCount = 0;
 
-            if (hasFiles || hasImages) {
+            if (hasFilesList || hasImagesList) {
                 if (tabsContainer) tabsContainer.style.display = 'flex';
 
-                // ملء الملفات
-                if (hasFiles) {
+                // (*** بداية التعديل: التحقق من الملفات ***)
+                if (hasFilesList) {
                     let filesHtml = '<ul class="file-download-list">';
-                    data.summaryData.files.forEach(file => {
-                        let icon = '📄'; // Default icon
-                        if (file.type === 'pdf') icon = '📕';
-                        if (file.type === 'doc') icon = '📘';
-                        if (file.type === 'ppt') icon = '📙';
-                        
-                        filesHtml += `
-                            <li class="file-download-item">
-                                <a href="${file.path}" target="_blank" rel="noopener noreferrer" class="file-download-link">
-                                    <span class="file-download-icon">${icon}</span>
-                                    <span class="file-download-name">${file.name}</span>
-                                </a>
-                            </li>
-                        `;
+                    
+                    // 1. إنشاء مصفوفة من الوعود (Promises) للتحقق
+                    const fileChecks = data.summaryData.files.map(async (file) => {
+                        const fileIsReal = await fileExists(file.path);
+                        if (fileIsReal) {
+                            foundFilesCount++; // زيادة العداد
+                            let icon = '📄';
+                            if (file.type === 'pdf') icon = '📕';
+                            if (file.type === 'doc') icon = '📘';
+                            if (file.type === 'ppt') icon = '📙';
+                            
+                            // إرجاع كود الـ HTML فقط إذا كان الملف موجوداً
+                            return `
+                                <li class="file-download-item">
+                                    <a href="${file.path}" target="_blank" rel="noopener noreferrer" class="file-download-link">
+                                        <span class="file-download-icon">${icon}</span>
+                                        <span class="file-download-name">${file.name}</span>
+                                    </a>
+                                </li>
+                            `;
+                        }
+                        return ''; // إرجاع سلسلة فارغة إذا لم يكن موجوداً
                     });
+
+                    // 2. انتظار انتهاء جميع عمليات التحقق
+                    const results = await Promise.all(fileChecks);
+                    
+                    // 3. فلترة النتائج الفارغة وضمها
+                    filesHtml += results.filter(html => html !== '').join('');
                     filesHtml += '</ul>';
-                    if (filesContentEl) filesContentEl.innerHTML = filesHtml;
+                    
+                    if (foundFilesCount === 0) {
+                        filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات (PDF/Word) متاحة حالياً لهذه المادة.</p>';
+                    } else {
+                        filesContentEl.innerHTML = filesHtml;
+                    }
                 } else {
-                    if (filesContentEl) filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات (PDF/Word) لهذه المادة.</p>';
+                    filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات (PDF/Word) لهذه المادة.</p>';
                 }
                 
-                // ملء الصور
-                if (hasImages) {
+                // (*** بداية التعديل: التحقق من الصور ***)
+                if (hasImagesList) {
                     let imagesHtml = '<div class="gallery-grid">';
-                    data.summaryData.images.forEach(img => {
-                         imagesHtml += `
-                            <div class="gallery-item">
-                                <img src="${img.path}" alt="${img.caption || 'صورة من الملخص'}">
-                                <p>${img.caption || 'صورة'}</p>
-                            </div>
-                         `;
+                    
+                    // 1. إنشاء مصفوفة الوعود
+                    const imageChecks = data.summaryData.images.map(async (img) => {
+                        const imageIsReal = await fileExists(img.path);
+                        if (imageIsReal) {
+                            foundImagesCount++; // زيادة العداد
+                            // إرجاع كود الـ HTML فقط إذا كانت الصورة موجودة
+                            return `
+                                <div class="gallery-item">
+                                    <img src="${img.path}" alt="${img.caption || 'صورة من الملخص'}">
+                                    <p>${img.caption || 'صورة'}</p>
+                                </div>
+                            `;
+                        }
+                        return ''; // إرجاع سلسلة فارغة
                     });
+                    
+                    // 2. انتظار انتهاء جميع عمليات التحقق
+                    const results = await Promise.all(imageChecks);
+
+                    // 3. فلترة النتائج الفارغة وضمها
+                    imagesHtml += results.filter(html => html !== '').join('');
                     imagesHtml += '</div>';
-                    if (imagesContentEl) imagesContentEl.innerHTML = imagesHtml;
+
+                    if (foundImagesCount === 0) {
+                         imagesContentEl.innerHTML = '<p class="placeholder">لا توجد صور متاحة حالياً لهذه المادة.</p>';
+                    } else {
+                        imagesContentEl.innerHTML = imagesHtml;
+                    }
                 }
+                // (*** نهاية التعديل ***)
+
 
                 if (filesContentEl) filesContentEl.appendChild(backBtn.cloneNode(true));
                 if (imagesContentEl) imagesContentEl.appendChild(backBtn.cloneNode(true));
@@ -530,7 +590,6 @@ async function initSummaryPage(subjectKey) {
                         imagesContentEl.style.display = 'none';
                         filesTab.classList.add('active');
                         imagesTab.classList.remove('active');
-                        // تسجيل النشاط
                         logActivity('Viewed Summary Files', subjectTitle);
                     });
                 }
@@ -540,19 +599,23 @@ async function initSummaryPage(subjectKey) {
                         imagesContentEl.style.display = 'block';
                         filesTab.classList.remove('active');
                         imagesTab.classList.add('active');
-                        // تسجيل النشاط
                         logActivity('Viewed Image Gallery', subjectTitle);
                     });
                 }
                 
                 // تحديد التبويب الافتراضي وتسجيل أول نشاط
-                if (hasFiles) {
+                // (*** تعديل ***: يتم الفتح على التبويب الذي يحتوي على ملفات فعلاً)
+                if (foundFilesCount > 0) {
                     filesTab.click(); 
-                } else if (hasImages) {
+                } else if (foundImagesCount > 0) {
                     imagesTab.click();
+                } else {
+                    // إذا كان الاثنان فارغين (لكن القائمة موجودة في JSON)، افتح على الملفات
+                    filesTab.click();
                 }
 
             } else if (hasOldContent) {
+                // (هذا الكود للملخصات النصية القديمة، يبقى كما هو)
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
                 
@@ -561,19 +624,24 @@ async function initSummaryPage(subjectKey) {
                 logActivity('Viewed Summary (Old)', subjectTitle);
 
             } else {
+                // (لا يوجد أي محتوى في JSON)
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
                 if (filesContentEl) filesContentEl.innerHTML = '<p class="placeholder">الملخص غير متاح حالياً لهذه المادة.</p>';
             }
 
+            // (*** تعديل ***: ربط عارض الصور بعد إنشائها)
             if (modal && closeModal && modalImg) {
                 const closeLightbox = () => modal.classList.remove('show');
                 closeModal.onclick = closeLightbox;
                 modal.onclick = (e) => {
                     if (e.target === modal) closeLightbox();
                 };
+                
+                // (هام) يجب استدعاء هذا الكود بعد ملء imagesContentEl
                 const imagesInGallery = imagesContentEl.querySelectorAll('.gallery-item img');
-                const imagesInText = filesContentEl.querySelectorAll('img'); 
+                const imagesInText = filesContentEl.querySelectorAll('img'); // للصور القديمة
+                
                 const openLightbox = (e) => {
                     modal.classList.add('show');
                     modalImg.src = e.target.src;
