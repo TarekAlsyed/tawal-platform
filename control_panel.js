@@ -1,6 +1,7 @@
 /*
- * control_panel.js - Tawal Academy (v1.2.0 - View Student Activity Logs)
- * لوحة تحكم الإدارة
+ * control_panel.js - Tawal Academy (v1.3.0 - PostgreSQL Case-Sensitivity Fix)
+ * (تصحيح) إصلاح مشكلة "Invalid Date" عن طريق تحويل كل متغيرات JS
+ * لتطابق الأسماء التي تعيدها قاعدة البيانات (كلها أحرف صغيرة).
  */
 
 // (هام) الرابط الخاص بالخادم الذي قمنا بنشره
@@ -9,13 +10,13 @@ const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 // (هام) كلمة سر الإدارة
 const ADMIN_PASSWORD = 'T357891$';
 
-// (جديد) جلب عناصر النافذة المنبثقة
+// جلب عناصر النافذة المنبثقة
 const modal = document.getElementById('student-modal');
 const modalCloseBtn = document.getElementById('modal-close-btn');
 const modalStudentName = document.getElementById('modal-student-name');
 const modalStatsContainer = document.getElementById('modal-stats-container');
 const modalResultsContainer = document.getElementById('modal-results-container');
-const modalActivityContainer = document.getElementById('modal-activity-container'); // (جديد)
+const modalActivityContainer = document.getElementById('modal-activity-container'); 
 
 
 /**
@@ -60,14 +61,14 @@ function checkAdminPassword() {
 }
 
 /**
- * تحميل جميع بيانات لوحة التحكم (*** تم التعديل ***)
+ * تحميل جميع بيانات لوحة التحكم
  */
 async function loadDashboard() {
     // جلب الإحصائيات والطلاب والسجلات في نفس الوقت
     await Promise.all([
         fetchStats(),
         fetchStudents(),
-        fetchActivityLogs(), // (جديد)
+        fetchActivityLogs(), 
         fetchLogs()
     ]);
 }
@@ -108,7 +109,7 @@ async function fetchStats() {
 }
 
 /**
- * 2. جلب قائمة الطلاب
+ * 2. جلب قائمة الطلاب (*** تم التعديل ***)
  */
 async function fetchStudents() {
     const container = document.getElementById('students-container');
@@ -134,7 +135,7 @@ async function fetchStudents() {
                         ${student.name}
                     </td>
                     <td>${student.email}</td>
-                    <td>${new Date(student.createdAt).toLocaleDateString('ar-EG')}</td>
+                    <td>${new Date(student.createdat).toLocaleDateString('ar-EG')}</td>
                 </tr>
             `;
         });
@@ -149,7 +150,7 @@ async function fetchStudents() {
 }
 
 /**
- * 3. (جديد) جلب سجل الأنشطة العام
+ * 3. جلب سجل الأنشطة العام (*** تم التعديل ***)
  */
 async function fetchActivityLogs() {
     const container = document.getElementById('activity-logs-container');
@@ -172,8 +173,8 @@ async function fetchActivityLogs() {
             tableHtml += `
                 <tr>
                     <td>${log.name}</td>
-                    <td>${log.activityType}</td>
-                    <td>${log.subjectName || '—'}</td>
+                    <td>${log.activitytype}</td>
+                    <td>${log.subjectname || '—'}</td>
                     <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                 </tr>
             `;
@@ -189,7 +190,7 @@ async function fetchActivityLogs() {
 }
 
 /**
- * 4. جلب سجلات الدخول
+ * 4. جلب سجلات الدخول (*** تم التعديل ***)
  */
 async function fetchLogs() {
     const container = document.getElementById('logs-container');
@@ -211,8 +212,8 @@ async function fetchLogs() {
             tableHtml += `
                 <tr>
                     <td>${log.name} (${log.email})</td>
-                    <td>${new Date(log.loginTime).toLocaleString('ar-EG')}</td>
-                    <td>${log.logoutTime ? new Date(log.logoutTime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
+                    <td>${new Date(log.logintime).toLocaleString('ar-EG')}</td>
+                    <td>${log.logouttime ? new Date(log.logouttime).toLocaleString('ar-EG') : '<i>ما زال متصلاً</i>'}</td>
                 </tr>
             `;
         });
@@ -233,13 +234,7 @@ async function fetchLogs() {
  */
 
 /**
- * (ملاحظة) نحتاج إلى تعديل الخادم لإضافة رابط جلب الأنشطة لطالب معين
- * في الوقت الحالي، سنقوم بفلترة الأنشطة التي تم جلبها بالفعل (غير دقيق لكنه سريع)
- * (التطوير المستقبلي: تعديل الخادم لإضافة /api/students/:id/activity-logs)
- */
-
-/**
- * إظهار النافذة المنبثقة وتحميل بيانات الطالب
+ * إظهار النافذة المنبثقة وتحميل بيانات الطالب (*** تم التعديل ***)
  */
 async function showStudentDetails(studentId, studentName) {
     if (!modal) return;
@@ -253,11 +248,10 @@ async function showStudentDetails(studentId, studentName) {
 
     // 2. جلب البيانات (الإحصائيات والنتائج والأنشطة)
     try {
-        // (تعديل) جلب 3 أنواع من البيانات
         const [statsResponse, resultsResponse, activityResponse] = await Promise.all([
             fetch(`${API_URL}/students/${studentId}/stats`),
             fetch(`${API_URL}/students/${studentId}/results`),
-            fetch(`${API_URL}/admin/activity-logs`) // (مؤقت: جلب كل الأنشطة ثم الفلترة)
+            fetch(`${API_URL}/admin/activity-logs`) // (جلب كل الأنشطة ثم الفلترة)
         ]);
 
         const stats = await statsResponse.json();
@@ -286,7 +280,7 @@ async function showStudentDetails(studentId, studentName) {
             `;
         }
 
-        // 4. عرض جدول النتائج
+        // 4. عرض جدول النتائج (*** تم التعديل ***)
         if (results.error) {
             modalResultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
         } else if (results.length === 0) {
@@ -298,10 +292,10 @@ async function showStudentDetails(studentId, studentName) {
             results.forEach(att => {
                 tableHtml += `
                     <tr>
-                        <td>${att.quizName}</td>
+                        <td>${att.quizname}</td>
                         <td style="color: var(--primary-color); font-weight: bold;">${att.score}</td>
-                        <td>${att.correctAnswers} / ${att.totalQuestions}</td>
-                        <td>${new Date(att.completedAt).toLocaleString('ar-EG')}</td>
+                        <td>${att.correctanswers} / ${att.totalquestions}</td>
+                        <td>${new Date(att.completedat).toLocaleString('ar-EG')}</td>
                     </tr>
                 `;
             });
@@ -309,7 +303,7 @@ async function showStudentDetails(studentId, studentName) {
             modalResultsContainer.innerHTML = tableHtml;
         }
         
-        // 5. (جديد) عرض جدول الأنشطة (بعد الفلترة)
+        // 5. عرض جدول الأنشطة (*** تم التعديل ***)
         if (allActivities.error) {
              modalActivityContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
         } else {
@@ -323,8 +317,8 @@ async function showStudentDetails(studentId, studentName) {
                 studentActivities.forEach(log => {
                     tableHtml += `
                         <tr>
-                            <td>${log.activityType}</td>
-                            <td>${log.subjectName || '—'}</td>
+                            <td>${log.activitytype}</td>
+                            <td>${log.subjectname || '—'}</td>
                             <td>${new Date(log.timestamp).toLocaleString('ar-EG')}</td>
                         </tr>
                     `;
@@ -352,6 +346,6 @@ function closeModal() {
         modalStudentName.innerText = '...';
         modalStatsContainer.innerHTML = '';
         modalResultsContainer.innerHTML = '';
-        modalActivityContainer.innerHTML = ''; // (جديد)
+        modalActivityContainer.innerHTML = ''; 
     }
 }
