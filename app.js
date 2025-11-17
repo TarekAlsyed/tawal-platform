@@ -1,14 +1,13 @@
 /*
- * app.js - Tawal Academy (v10.5.0 - Dynamic Asset Check)
- * - (جديد) إضافة دالة fileExists للتحقق من وجود الملفات قبل عرضها.
- * - (تعديل) تحديث initSummaryPage لاستخدام fileExists وعدم عرض الروابط المكسورة.
+ * app.js - Tawal Academy (v10.6.0 - Index-Only Security Check)
+ * - (تعديل) نقل checkAccessPermission ليعمل فقط في الصفحة الرئيسية.
+ * - (تعديل) إضافة دالة fileExists للتحقق من وجود الملفات قبل عرضها.
  */
 
 /* =======================
    إعدادات الاتصال بالخادم
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
-// (*** تعديل v10.4.0: تغيير المفتاح لإجبار إعادة التسجيل ***)
 let STUDENT_ID = localStorage.getItem('tawal_studentId_v3');
 
 /* =======================
@@ -224,15 +223,12 @@ async function registerStudent() {
         if (data.id) {
             // نجح التسجيل
             STUDENT_ID = data.id;
-            // (*** تعديل v10.4.0: استخدام المفتاح الجديد ***)
             localStorage.setItem('tawal_studentId_v3', data.id);
             localStorage.setItem('tawal_studentName_v3', data.name);
             alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
             return true;
         } else if (data.error && data.error.includes('UNIQUE')) {
             alert(`أهلاً بعودتك يا ${name}! يبدو أنك مسجل بالفعل.`);
-            // (مستقبلاً: يجب جلب الـ ID من الإيميل)
-            // لإعادة المحاولة
             return await registerStudent(); 
         } else {
             alert('حدث خطأ أثناء التسجيل: ' + data.error);
@@ -247,44 +243,43 @@ async function registerStudent() {
 
 
 /* =======================
-   (*** تعديل جذري v10.3.0: منطق الدخول الهجين ***)
+   (*** تعديل جذري v10.6.0: منطق الدخول ***)
    ======================= */
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
+    
+    // (*** تعديل ***: تحديد الصفحة الرئيسية أولاً)
+    const subjectsGrid = $('subjects-grid'); // هذا العنصر موجود فقط في index.html
 
     // --- بداية منطق الدخول الهجين ---
     if (!STUDENT_ID) {
-        // (1) مستخدم جديد تماماً: سجل الاسم والإيميل (مرة واحدة فقط)
+        // (1) مستخدم جديد: قم بالتسجيل (يعمل على أي صفحة)
         const success = await registerStudent();
         if (!success) {
             return; // إيقاف تحميل الصفحة إذا فشل التسجيل
         }
     } else {
-        // (2) مستخدم عائد: اسأل سؤال الصلاة (في كل مرة)
-        if (!checkAccessPermission('المنصة')) {
-            // إذا كانت الإجابة خاطئة، قم بإخفاء المحتوى بالكامل
-            const quizContainer = document.querySelector('.quiz-container');
-            const mainContainer = document.querySelector('.main-container');
-
-            if (quizContainer) {
-                quizContainer.innerHTML = `
-                    <div class="quiz-header"><h2>الوصول مرفوض</h2></div>
-                    <div class="quiz-body">
-                        <p class="placeholder" style="color: var(--color-incorrect);">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                    </div>`;
-            } else if (mainContainer) {
-                mainContainer.innerHTML = `
-                    <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
-                    <main>
-                        <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                    </main>`;
-            } else {
-                document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">الوصول مرفوض</h1>`;
-            }
-            return; // إيقاف تنفيذ أي كود آخر
-        }
+        // (2) مستخدم عائد:
         
-        // (3) إذا نجح في الإجابة، سجل دخوله في الخلفية
+        // (*** تعديل ***: اسأل السؤال فقط إذا كنا في الصفحة الرئيسية)
+        if (subjectsGrid) {
+            // نحن في index.html، لذلك اسأل السؤال
+            if (!checkAccessPermission('المنصة')) {
+                // إذا كانت الإجابة خاطئة، قم بإخفاء محتوى الصفحة الرئيسية فقط
+                const mainContainer = document.querySelector('.main-container');
+                if (mainContainer) {
+                    mainContainer.innerHTML = `
+                        <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
+                        <main>
+                            <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
+                        </main>`;
+                }
+                return; // إيقاف تنفيذ أي كود آخر في الصفحة الرئيسية
+            }
+        }
+        // (*** نهاية التعديل ***)
+        
+        // (3) إذا نجح (أو كان في صفحة أخرى)، سجل دخوله في الخلفية
         fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -298,10 +293,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
-    const subjectsGrid = $('subjects-grid');
     const dashboardContent = $('dashboard-content'); 
 
     try {
+        // (subjectsGrid تم تعريفه في الأعلى)
         if (subjectsGrid) {
             initIndexPage();
         } else if (quizBody) {
@@ -321,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
    ======================= */
 function initThemeToggle() {
     const btn = $('theme-toggle-btn');
-    const saved = localStorage.getItem('theme') || 'dark'; // الوضع الداكن افتراضيًا
+    const saved = localStorage.getItem('theme') || 'dark';
     
     if (saved === 'light') { 
         document.body.classList.add('light-mode');
@@ -440,16 +435,12 @@ async function loadAndEnableCard(key, cardElement) {
 /*
  * (*** جديد v10.5.0 ***)
  * دالة مساعدة للتحقق من وجود ملف على الخادم
- * نستخدم 'HEAD' لطلب خفيف لا يجلب الملف كاملاً، فقط نتأكد من حالته
  */
 async function fileExists(url) {
     try {
         const response = await fetch(url, { method: 'HEAD' });
-        // response.ok (true) = السيرفر رد بـ 200 (موجود)
-        // response.ok (false) = السيرفر رد بـ 404 (غير موجود)
         return response.ok;
     } catch (e) {
-        // فشل في الاتصال (مثل خطأ شبكة أو CORS إذا كان على دومين مختلف)
         console.warn(`File check failed for ${url}: ${e.message}`);
         return false;
     }
@@ -501,21 +492,17 @@ async function initSummaryPage(subjectKey) {
             if (hasFilesList || hasImagesList) {
                 if (tabsContainer) tabsContainer.style.display = 'flex';
 
-                // (*** بداية التعديل: التحقق من الملفات ***)
                 if (hasFilesList) {
                     let filesHtml = '<ul class="file-download-list">';
-                    
-                    // 1. إنشاء مصفوفة من الوعود (Promises) للتحقق
                     const fileChecks = data.summaryData.files.map(async (file) => {
                         const fileIsReal = await fileExists(file.path);
                         if (fileIsReal) {
-                            foundFilesCount++; // زيادة العداد
+                            foundFilesCount++; 
                             let icon = '📄';
                             if (file.type === 'pdf') icon = '📕';
                             if (file.type === 'doc') icon = '📘';
                             if (file.type === 'ppt') icon = '📙';
                             
-                            // إرجاع كود الـ HTML فقط إذا كان الملف موجوداً
                             return `
                                 <li class="file-download-item">
                                     <a href="${file.path}" target="_blank" rel="noopener noreferrer" class="file-download-link">
@@ -525,13 +512,9 @@ async function initSummaryPage(subjectKey) {
                                 </li>
                             `;
                         }
-                        return ''; // إرجاع سلسلة فارغة إذا لم يكن موجوداً
+                        return '';
                     });
-
-                    // 2. انتظار انتهاء جميع عمليات التحقق
                     const results = await Promise.all(fileChecks);
-                    
-                    // 3. فلترة النتائج الفارغة وضمها
                     filesHtml += results.filter(html => html !== '').join('');
                     filesHtml += '</ul>';
                     
@@ -544,16 +527,12 @@ async function initSummaryPage(subjectKey) {
                     filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات (PDF/Word) لهذه المادة.</p>';
                 }
                 
-                // (*** بداية التعديل: التحقق من الصور ***)
                 if (hasImagesList) {
                     let imagesHtml = '<div class="gallery-grid">';
-                    
-                    // 1. إنشاء مصفوفة الوعود
                     const imageChecks = data.summaryData.images.map(async (img) => {
                         const imageIsReal = await fileExists(img.path);
                         if (imageIsReal) {
-                            foundImagesCount++; // زيادة العداد
-                            // إرجاع كود الـ HTML فقط إذا كانت الصورة موجودة
+                            foundImagesCount++;
                             return `
                                 <div class="gallery-item">
                                     <img src="${img.path}" alt="${img.caption || 'صورة من الملخص'}">
@@ -561,13 +540,9 @@ async function initSummaryPage(subjectKey) {
                                 </div>
                             `;
                         }
-                        return ''; // إرجاع سلسلة فارغة
+                        return '';
                     });
-                    
-                    // 2. انتظار انتهاء جميع عمليات التحقق
                     const results = await Promise.all(imageChecks);
-
-                    // 3. فلترة النتائج الفارغة وضمها
                     imagesHtml += results.filter(html => html !== '').join('');
                     imagesHtml += '</div>';
 
@@ -577,13 +552,10 @@ async function initSummaryPage(subjectKey) {
                         imagesContentEl.innerHTML = imagesHtml;
                     }
                 }
-                // (*** نهاية التعديل ***)
-
 
                 if (filesContentEl) filesContentEl.appendChild(backBtn.cloneNode(true));
-                if (imagesContentEl) imagesContentEl.appendChild(backBtn.cloneNode(true));
+                if (imagesContentEl) imagesContentEl.appendChild(backGtn.cloneNode(true));
             
-                // ربط أزرار التبويب
                 if (filesTab) {
                     filesTab.addEventListener('click', () => {
                         filesContentEl.style.display = 'block';
@@ -603,19 +575,15 @@ async function initSummaryPage(subjectKey) {
                     });
                 }
                 
-                // تحديد التبويب الافتراضي وتسجيل أول نشاط
-                // (*** تعديل ***: يتم الفتح على التبويب الذي يحتوي على ملفات فعلاً)
                 if (foundFilesCount > 0) {
                     filesTab.click(); 
                 } else if (foundImagesCount > 0) {
                     imagesTab.click();
                 } else {
-                    // إذا كان الاثنان فارغين (لكن القائمة موجودة في JSON)، افتح على الملفات
                     filesTab.click();
                 }
 
             } else if (hasOldContent) {
-                // (هذا الكود للملخصات النصية القديمة، يبقى كما هو)
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
                 
@@ -624,13 +592,11 @@ async function initSummaryPage(subjectKey) {
                 logActivity('Viewed Summary (Old)', subjectTitle);
 
             } else {
-                // (لا يوجد أي محتوى في JSON)
                 if (tabsContainer) tabsContainer.style.display = 'none';
                 if (imagesContentEl) imagesContentEl.style.display = 'none';
                 if (filesContentEl) filesContentEl.innerHTML = '<p class="placeholder">الملخص غير متاح حالياً لهذه المادة.</p>';
             }
 
-            // (*** تعديل ***: ربط عارض الصور بعد إنشائها)
             if (modal && closeModal && modalImg) {
                 const closeLightbox = () => modal.classList.remove('show');
                 closeModal.onclick = closeLightbox;
@@ -638,9 +604,8 @@ async function initSummaryPage(subjectKey) {
                     if (e.target === modal) closeLightbox();
                 };
                 
-                // (هام) يجب استدعاء هذا الكود بعد ملء imagesContentEl
                 const imagesInGallery = imagesContentEl.querySelectorAll('.gallery-item img');
-                const imagesInText = filesContentEl.querySelectorAll('img'); // للصور القديمة
+                const imagesInText = filesContentEl.querySelectorAll('img'); 
                 
                 const openLightbox = (e) => {
                     modal.classList.add('show');
@@ -802,6 +767,9 @@ async function initQuizPage(subjectKey) {
    المحرك الرئيسي للاختبار (v9.1.2)
    ======================= */
 function runQuizEngine(quizObj, subjectKey) {
+    // ... (باقي كود الاختبار لم يتغير) ...
+    // ... (rest of the quiz engine code remains unchanged) ...
+    
     // عناصر DOM
     const quizTitleEl = $('quiz-title');
     const questionTextEl = $('question-text');
