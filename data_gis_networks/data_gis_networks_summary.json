@@ -5,6 +5,26 @@
       "name": "الفصل الأول",
       "path": "pdf/gis_networks/1.pdf",
       "type": "pdf"
+    },
+    {
+      "name": "الفصل الثاني",
+      "path": "pdf/gis_networks/2.pdf",
+      "type": "pdf"
+    },
+    {
+      "name": "الفصل الثالث",
+      "path": "pdf/gis_networks/3.pdf",
+      "type": "pdf"
+    },
+    {
+      "name": "الفصل الرابع",
+      "path": "pdf/gis_networks/4.pdf",
+      "type": "pdf"
+    },
+    {
+      "name": "الفصل الخامس",
+      "path": "pdf/gis_networks/5.pdf",
+      "type": "pdf"
     }
   ],
   "images": [
@@ -39,6 +59,74 @@
     {
       "path": "images/gis_networks/8.jpg",
       "caption": "صورة 8"
+    },
+    {
+      "path": "images/gis_networks/9.jpg",
+      "caption": "صورة 9"
+    },
+    {
+      "path": "images/gis_networks/10.jpg",
+      "caption": "صورة 10"
+    },
+    {
+      "path": "images/gis_networks/11.jpg",
+      "caption": "صورة 11"
+    },
+    {
+      "path": "images/gis_networks/12.jpg",
+      "caption": "صورة 12"
+    },
+    {
+      "path": "images/gis_networks/13.jpg",
+      "caption": "صورة 13"
+    },
+    {
+      "path": "images/gis_networks/14.jpg",
+      "caption": "صورة 14"
+    },
+    {
+      "path": "images/gis_networks/15.jpg",
+      "caption": "صورة 15"
+    },
+    {
+      "path": "images/gis_networks/16.jpg",
+      "caption": "صورة 16"
+    },
+    {
+      "path": "images/gis_networks/17.jpg",
+      "caption": "صورة 17"
+    },
+    {
+      "path": "images/gis_networks/18.jpg",
+      "caption": "صورة 18"
+    },
+    {
+      "path": "images/gis_networks/19.jpg",
+      "caption": "صورة 19"
+    },
+    {
+      "path": "images/gis_networks/20.jpg",
+      "caption": "صورة 20"
+    },
+    {
+      "path": "images/gis_networks/21.jpg",
+      "caption": "صورة 21"
+    },
+    {
+      "path": "images/gis_networks/22.jpg",
+      "caption": "صورة 22"
+    },
+    {
+      "path": "images/gis_networks/23.jpg",
+      "caption": "صورة 23"
+    },
+    {
+      "path": "images/gis_networks/24.jpg",
+      "caption": "صورة 24"
+    },
+    {
+      "path": "images/gis_networks/25.jpg",
+      "caption": "صورة 25"
     }
   ]
 }
