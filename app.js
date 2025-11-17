@@ -1,8 +1,9 @@
 /*
- * app.js - Tawal Academy (v10.6.1 - Typo Fix)
+ * app.js - Tawal Academy (v10.7.0 - DB Migration Fix)
+ * - (جديد) إضافة دالة verifyOrRegisterStudent للتحقق من أن الـ ID المحلي
+ * موجود في قاعدة البيانات الجديدة، وإلا يتم إجباره على إعادة التسجيل.
  * - (تصحيح) إصلاح خطأ "backGtn is not defined" في initSummaryPage.
  * - (تعديل) نقل checkAccessPermission ليعمل فقط في الصفحة الرئيسية.
- * - (تعديل) إضافة دالة fileExists للتحقق من وجود الملفات قبل عرضها.
  */
 
 /* =======================
@@ -228,7 +229,7 @@ async function registerStudent() {
             localStorage.setItem('tawal_studentName_v3', data.name);
             alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
             return true;
-        } else if (data.error && data.error.includes('UNIQUE')) {
+        } else if (data.error && data.error.includes('البريد الإلكتروني مسجل بالفعل')) {
             alert(`أهلاً بعودتك يا ${name}! يبدو أنك مسجل بالفعل.`);
             return await registerStudent(); 
         } else {
@@ -242,62 +243,86 @@ async function registerStudent() {
     }
 }
 
+/* * (*** جديد v10.7.0 ***)
+ * دالة التحقق من هوية الطالب
+ * تتحقق إذا كان الـ ID المحلي صالحاً في قاعدة البيانات الجديدة
+ */
+async function verifyOrRegisterStudent() {
+    let localId = localStorage.getItem('tawal_studentId_v3');
+    
+    if (localId) {
+        // (1) الطالب لديه ID محلي، لنتحقق منه
+        try {
+            const response = await fetch(`${API_URL}/students/${localId}`);
+            if (response.ok) {
+                // (2) الـ ID صالح وموجود في قاعدة البيانات
+                STUDENT_ID = localId;
+                return true; // المستخدم صالح
+            } else {
+                // (3) الـ ID موجود محلياً ولكنه غير موجود في قاعدة البيانات (طالب قديم)
+                throw new Error('Student not found in DB');
+            }
+        } catch (err) {
+            // (4) حدث خطأ (مثل 404 أو فشل الشبكة)
+            console.warn('Invalid local studentId. Forcing re-registration.');
+            // حذف البيانات القديمة غير الصالحة
+            localStorage.removeItem('tawal_studentId_v3');
+            localStorage.removeItem('tawal_studentName_v3');
+            // إجباره على التسجيل كطالب جديد
+            return await registerStudent();
+        }
+    } else {
+        // (5) الطالب ليس لديه ID (طالب جديد تماماً)
+        return await registerStudent();
+    }
+}
+
 
 /* =======================
-   (*** تعديل جذري v10.6.0: منطق الدخول ***)
+   (*** تعديل جذري v10.7.0: منطق الدخول ***)
    ======================= */
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
     
-    // (*** تعديل ***: تحديد الصفحة الرئيسية أولاً)
-    const subjectsGrid = $('subjects-grid'); // هذا العنصر موجود فقط في index.html
-
-    // --- بداية منطق الدخول الهجين ---
-    if (!STUDENT_ID) {
-        // (1) مستخدم جديد: قم بالتسجيل (يعمل على أي صفحة)
-        const success = await registerStudent();
-        if (!success) {
-            return; // إيقاف تحميل الصفحة إذا فشل التسجيل
-        }
-    } else {
-        // (2) مستخدم عائد:
-        
-        // (*** تعديل ***: اسأل السؤال فقط إذا كنا في الصفحة الرئيسية)
-        if (subjectsGrid) {
-            // نحن في index.html، لذلك اسأل السؤال
-            if (!checkAccessPermission('المنصة')) {
-                // إذا كانت الإجابة خاطئة، قم بإخفاء محتوى الصفحة الرئيسية فقط
-                const mainContainer = document.querySelector('.main-container');
-                if (mainContainer) {
-                    mainContainer.innerHTML = `
-                        <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
-                        <main>
-                            <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                        </main>`;
-                }
-                return; // إيقاف تنفيذ أي كود آخر في الصفحة الرئيسية
-            }
-        }
-        // (*** نهاية التعديل ***)
-        
-        // (3) إذا نجح (أو كان في صفحة أخرى)، سجل دخوله في الخلفية
-        fetch(`${API_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: STUDENT_ID })
-        });
+    // (*** الخطوة 1: التحقق من هوية الطالب أو تسجيله ***)
+    const isUserValid = await verifyOrRegisterStudent();
+    if (!isUserValid) {
+        // إذا فشل التسجيل أو ألغاه المستخدم، أوقف تحميل الصفحة
+        return; 
     }
-    // --- نهاية منطق الدخول الهجين ---
     
+    // (*** الخطوة 2: إذا كان المستخدم صالحاً، تحقق من سؤال الصلاة (فقط في الرئيسية) ***)
+    const subjectsGrid = $('subjects-grid'); 
+    if (subjectsGrid) {
+        // نحن في index.html، اسأل السؤال
+        if (!checkAccessPermission('المنصة')) {
+            const mainContainer = document.querySelector('.main-container');
+            if (mainContainer) {
+                mainContainer.innerHTML = `
+                    <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
+                    <main>
+                        <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
+                    </main>`;
+            }
+            return; // إيقاف تنفيذ أي كود آخر في الصفحة الرئيسية
+        }
+    }
     
-    // (4) إذا نجح، قم بتحميل محتوى الصفحة كالمعتاد
+    // (*** الخطوة 3: سجل دخوله في الخلفية (الآن نضمن أن STUDENT_ID صالح) ***)
+    fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: STUDENT_ID })
+    });
+
+    
+    // (*** الخطوة 4: قم بتحميل محتوى الصفحة كالمعتاد ***)
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
     const dashboardContent = $('dashboard-content'); 
 
     try {
-        // (subjectsGrid تم تعريفه في الأعلى)
         if (subjectsGrid) {
             initIndexPage();
         } else if (quizBody) {
@@ -555,7 +580,6 @@ async function initSummaryPage(subjectKey) {
                 }
 
                 if (filesContentEl) filesContentEl.appendChild(backBtn.cloneNode(true));
-                // (*** هذا هو السطر الذي تم تصحيحه ***)
                 if (imagesContentEl) imagesContentEl.appendChild(backBtn.cloneNode(true));
             
                 if (filesTab) {
