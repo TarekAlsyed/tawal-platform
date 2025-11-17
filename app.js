@@ -1,5 +1,6 @@
 /*
- * app.js - Tawal Academy (v10.6.0 - Index-Only Security Check)
+ * app.js - Tawal Academy (v10.6.1 - Typo Fix)
+ * - (تصحيح) إصلاح خطأ "backGtn is not defined" في initSummaryPage.
  * - (تعديل) نقل checkAccessPermission ليعمل فقط في الصفحة الرئيسية.
  * - (تعديل) إضافة دالة fileExists للتحقق من وجود الملفات قبل عرضها.
  */
@@ -554,7 +555,8 @@ async function initSummaryPage(subjectKey) {
                 }
 
                 if (filesContentEl) filesContentEl.appendChild(backBtn.cloneNode(true));
-                if (imagesContentEl) imagesContentEl.appendChild(backGtn.cloneNode(true));
+                // (*** هذا هو السطر الذي تم تصحيحه ***)
+                if (imagesContentEl) imagesContentEl.appendChild(backBtn.cloneNode(true));
             
                 if (filesTab) {
                     filesTab.addEventListener('click', () => {
