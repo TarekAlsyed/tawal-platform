@@ -2,7 +2,7 @@
   "name": "Tawal Academy",
   "short_name": "Tawal",
   "description": "منصة Tawal Academy التعليمية لاختبارات ومواد الجغرافيا.",
-  "start_url": "/quiz-project2/",
+  "start_url": "/tawal-platform/index.html",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#4e54c8",
