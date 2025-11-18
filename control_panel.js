@@ -1,15 +1,18 @@
 /*
- * control_panel.js - Tawal Academy (v1.5.0 - Full Features)
- * - عرض الإحصائيات والطلاب والسجلات.
+ * control_panel.js - Tawal Academy (v1.7.0 - Full Original & Enhanced)
+ * - عرض الإحصائيات والطلاب والسجلات (النسخة الكاملة).
  * - إدارة حظر الحسابات (Block Account).
  * - إدارة حظر الأجهزة (Block Fingerprint).
- * - متوافق مع PostgreSQL (Case Insensitive Keys).
+ * - متوافق مع PostgreSQL.
  */
 
+// رابط الخادم (تأكد أنه الرابط الصحيح)
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 const ADMIN_PASSWORD = 'T357891$';
 
-// عناصر DOM
+// ==========================================
+// 1. تعريف عناصر الواجهة (DOM Elements)
+// ==========================================
 const modal = document.getElementById('student-modal');
 const modalCloseBtn = document.getElementById('modal-close-btn');
 const modalStudentName = document.getElementById('modal-student-name');
@@ -17,9 +20,11 @@ const modalStatsContainer = document.getElementById('modal-stats-container');
 const modalResultsContainer = document.getElementById('modal-results-container');
 const modalActivityContainer = document.getElementById('modal-activity-container'); 
 
-// التشغيل عند التحميل
+// ==========================================
+// 2. التشغيل عند تحميل الصفحة
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. التحقق من كلمة المرور
+    // التحقق من كلمة المرور أولاً
     if (!checkAdminPassword()) {
         document.getElementById('dashboard-content').innerHTML = `
             <p class="dashboard-empty-state" style="color: var(--color-incorrect);">
@@ -28,10 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // 2. تحميل البيانات
+    // إذا كانت كلمة السر صحيحة، ابدأ تحميل البيانات
     loadDashboard();
 
-    // 3. إعدادات النافذة المنبثقة (Modal)
+    // إعدادات إغلاق النافذة المنبثقة
     if (modalCloseBtn) {
         modalCloseBtn.onclick = () => closeModal();
     }
@@ -44,22 +49,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+/**
+ * دالة التحقق من كلمة المرور
+ */
 function checkAdminPassword() {
     const enteredPassword = prompt('الرجاء إدخال كلمة سر الإدارة (Admin Password):');
     return enteredPassword === ADMIN_PASSWORD;
 }
 
+/**
+ * دالة تحميل جميع بيانات لوحة التحكم
+ */
 async function loadDashboard() {
-    // تحميل كل الأقسام في وقت واحد
-    await Promise.all([
-        fetchStats(),
-        fetchStudents(),
-        fetchActivityLogs(), 
-        fetchLogs()
-    ]);
+    // نقوم بتحميل كل الأقسام في وقت واحد لتسريع العملية
+    try {
+        await Promise.all([
+            fetchStats(),
+            fetchStudents(),
+            fetchActivityLogs(), 
+            fetchLogs()
+        ]);
+    } catch (error) {
+        console.error("حدث خطأ أثناء تحميل البيانات:", error);
+        alert("حدث خطأ في الاتصال بالخادم. يرجى التحقق من الإنترنت.");
+    }
 }
 
-// 1. الإحصائيات العامة
+// ==========================================
+// 3. قسم الإحصائيات العامة
+// ==========================================
 async function fetchStats() {
     const container = document.getElementById('stats-container');
     try {
@@ -68,20 +86,21 @@ async function fetchStats() {
 
         if (stats.error) throw new Error(stats.error);
 
+        // عرض الإحصائيات في الصناديق
         container.innerHTML = `
             <div class="dashboard-summary-grid">
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الطلاب</p>
-                    <p class="summary-box-value">${stats.totalStudents}</p>
+                    <p class="summary-box-value">${stats.totalStudents || 0}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalQuizzes}</p>
+                    <p class="summary-box-value">${stats.totalQuizzes || 0}</p>
                 </div>
                 <div class="summary-box">
                     <p class="summary-box-label">متوسط الدرجات (نقاط)</p>
                     <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">
-                        ${stats.averageScore}
+                        ${stats.averageScore || 0}
                     </p>
                 </div>
             </div>
@@ -92,7 +111,9 @@ async function fetchStats() {
     }
 }
 
-// 2. قائمة الطلاب (مع أزرار الحظر)
+// ==========================================
+// 4. قسم إدارة الطلاب (قائمة الطلاب + الحظر)
+// ==========================================
 async function fetchStudents() {
     const container = document.getElementById('students-container');
     try {
@@ -106,29 +127,41 @@ async function fetchStudents() {
         }
 
         let tableHtml = '<table class="admin-table">';
-        tableHtml += '<thead><tr><th>ID</th><th>الاسم</th><th>البريد الإلكتروني</th><th>تاريخ التسجيل</th><th>الإجراءات</th></tr></thead>';
-        tableHtml += '<tbody>';
+        tableHtml += `
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>الاسم (اضغط للعرض)</th>
+                    <th>البريد الإلكتروني</th>
+                    <th>تاريخ التسجيل</th>
+                    <th>الإجراءات (الحظر)</th>
+                </tr>
+            </thead>
+            <tbody>`;
 
         students.forEach(student => {
-            // استخدام أحرف صغيرة لتتوافق مع PostgreSQL
+            // تحديد حالة الحظر الحالية لتغيير شكل الزر
             const isBlocked = student.isblocked; 
             const buttonClass = isBlocked ? 'unblock-btn' : 'block-btn';
-            const buttonText = isBlocked ? 'إلغاء حظر' : 'حظر الحساب';
+            const buttonText = isBlocked ? '✅ إلغاء حظر' : '🚫 حظر الحساب';
+            
+            // تنسيق التاريخ
+            const dateStr = new Date(student.createdat).toLocaleDateString('ar-EG');
 
             tableHtml += `
                 <tr>
                     <td>${student.id}</td>
-                    <td class="clickable-student" onclick="showStudentDetails(${student.id}, '${student.name}')">
+                    <td class="clickable-student" onclick="showStudentDetails(${student.id}, '${student.name}')" title="اضغط لعرض التفاصيل">
                         ${student.name}
                     </td>
                     <td>${student.email}</td>
-                    <td>${new Date(student.createdat).toLocaleDateString('ar-EG')}</td>
+                    <td>${dateStr}</td>
                     <td style="display: flex; gap: 5px; flex-wrap: wrap;">
                         <button class="admin-action-btn ${buttonClass}" onclick="toggleBlockStatus(${student.id}, ${isBlocked})">
                             ${buttonText}
                         </button>
-                        <button class="admin-action-btn block-fp-btn" onclick="blockFingerprint(${student.id}, '${student.name}')">
-                            حظر الجهاز
+                        <button class="admin-action-btn block-fp-btn" onclick="blockFingerprint(${student.id}, '${student.name}')" title="منع هذا الجهاز من الدخول نهائياً">
+                            💻 حظر الجهاز
                         </button>
                     </td>
                 </tr>
@@ -144,12 +177,12 @@ async function fetchStudents() {
     }
 }
 
-// دالة: تبديل حالة حظر الحساب
+// --- دالة 1: حظر/إلغاء حظر حساب الطالب ---
 async function toggleBlockStatus(studentId, isCurrentlyBlocked) {
     const newStatus = !isCurrentlyBlocked;
     const actionText = newStatus ? 'حظر' : 'إلغاء حظر';
 
-    if (!confirm(`هل أنت متأكد أنك تريد ${actionText} هذا الحساب؟`)) {
+    if (!confirm(`هل أنت متأكد أنك تريد ${actionText} حساب هذا الطالب؟\n(لن يتمكن من الدخول بحسابه)`)) {
         return;
     }
 
@@ -157,7 +190,7 @@ async function toggleBlockStatus(studentId, isCurrentlyBlocked) {
         const response = await fetch(`${API_URL}/admin/students/${studentId}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ isblocked: newStatus }) // أحرف صغيرة
+            body: JSON.stringify({ isblocked: newStatus }) 
         });
         
         const data = await response.json();
@@ -167,16 +200,16 @@ async function toggleBlockStatus(studentId, isCurrentlyBlocked) {
         }
 
         alert(`تم ${actionText} الحساب بنجاح.`);
-        await fetchStudents(); // تحديث الجدول
+        await fetchStudents(); // تحديث الجدول فوراً
     } catch (err) {
         console.error(`فشل ${actionText} الحساب:`, err);
-        alert(`حدث خطأ أثناء محاولة ${actionText} الحساب.`);
+        alert(`حدث خطأ أثناء محاولة ${actionText} الحساب. تأكد من اتصال الخادم.`);
     }
 }
 
-// دالة: حظر بصمة الجهاز
+// --- دالة 2: حظر بصمة الجهاز (Block Fingerprint) ---
 async function blockFingerprint(studentId, studentName) {
-    if (!confirm(`هل أنت متأكد أنك تريد حظر آخر جهاز (بصمة) استخدمه الطالب "${studentName}"؟\nهذا الإجراء سيمنع أي حساب جديد من التسجيل من هذا الجهاز نهائياً.`)) {
+    if (!confirm(`⚠️ تحذير هام:\nهل أنت متأكد أنك تريد حظر "جهاز" الطالب ${studentName} نهائياً؟\n\nهذا سيمنع أي شخص من إنشاء حساب جديد أو الدخول من هذا المتصفح/الجهاز.`)) {
         return;
     }
 
@@ -196,11 +229,13 @@ async function blockFingerprint(studentId, studentName) {
         alert(data.message || 'تم حظر بصمة الجهاز بنجاح.');
     } catch (err) {
         console.error('فشل حظر البصمة:', err);
-        alert(`حدث خطأ: ${err.message}`);
+        alert(`فشل العملية: ${err.message}`);
     }
 }
 
-// 3. سجل الأنشطة
+// ==========================================
+// 5. سجل أحدث الأنشطة
+// ==========================================
 async function fetchActivityLogs() {
     const container = document.getElementById('activity-logs-container');
     try {
@@ -217,6 +252,7 @@ async function fetchActivityLogs() {
         tableHtml += '<thead><tr><th>الطالب</th><th>النشاط</th><th>المادة</th><th>الوقت</th></tr></thead>';
         tableHtml += '<tbody>';
 
+        // عرض آخر 20 نشاط فقط
         logs.slice(0, 20).forEach(log => {
             tableHtml += `
                 <tr>
@@ -237,7 +273,9 @@ async function fetchActivityLogs() {
     }
 }
 
-// 4. سجلات الدخول
+// ==========================================
+// 6. سجلات الدخول
+// ==========================================
 async function fetchLogs() {
     const container = document.getElementById('logs-container');
     try {
@@ -273,9 +311,13 @@ async function fetchLogs() {
     }
 }
 
-// 5. تفاصيل الطالب (في النافذة المنبثقة)
+// ==========================================
+// 7. نافذة تفاصيل الطالب (Modal)
+// ==========================================
 async function showStudentDetails(studentId, studentName) {
     if (!modal) return;
+
+    // فتح النافذة وإظهار رسالة التحميل
     modal.style.display = 'block';
     modalStudentName.innerText = `بيانات الطالب: ${studentName}`;
     modalStatsContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الإحصائيات...</p>';
@@ -283,6 +325,7 @@ async function showStudentDetails(studentId, studentName) {
     modalActivityContainer.innerHTML = '<p class="dashboard-empty-state">جاري تحميل الأنشطة...</p>';
 
     try {
+        // جلب 3 أنواع من البيانات في نفس الوقت
         const [statsResponse, resultsResponse, activityResponse] = await Promise.all([
             fetch(`${API_URL}/students/${studentId}/stats`),
             fetch(`${API_URL}/students/${studentId}/results`),
@@ -293,7 +336,7 @@ async function showStudentDetails(studentId, studentName) {
         const results = await resultsResponse.json();
         const allActivities = await activityResponse.json();
 
-        // عرض إحصائيات الطالب
+        // أ. عرض الإحصائيات
         if (stats.error) {
             modalStatsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
         } else {
@@ -301,21 +344,21 @@ async function showStudentDetails(studentId, studentName) {
                 <div class="dashboard-summary-grid">
                     <div class="summary-box">
                         <p class="summary-box-label">إجمالي الاختبارات</p>
-                        <p class="summary-box-value">${stats.totalQuizzes}</p>
+                        <p class="summary-box-value">${stats.totalQuizzes || 0}</p>
                     </div>
                     <div class="summary-box">
                         <p class="summary-box-label">متوسط النقاط</p>
-                        <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
+                        <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore || 0}</p>
                     </div>
                     <div class="summary-box">
                         <p class="summary-box-label">أفضل نتيجة (نقاط)</p>
-                        <p class="summary-box-value level-excellent">${stats.bestScore}</p>
+                        <p class="summary-box-value level-excellent">${stats.bestScore || 0}</p>
                     </div>
                 </div>
             `;
         }
 
-        // عرض نتائج الطالب
+        // ب. عرض جدول النتائج
         if (results.error) {
             modalResultsContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الاختبارات.</p>';
         } else if (results.length === 0) {
@@ -338,11 +381,13 @@ async function showStudentDetails(studentId, studentName) {
             modalResultsContainer.innerHTML = tableHtml;
         }
         
-        // عرض أنشطة الطالب
+        // ج. عرض جدول الأنشطة الخاص بالطالب
         if (allActivities.error) {
              modalActivityContainer.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل سجل الأنشطة.</p>';
         } else {
-            const studentActivities = allActivities.filter(log => log.name === studentName);
+            // تصفية الأنشطة لتظهر الخاصة بهذا الطالب فقط
+            const studentActivities = allActivities.filter(log => log.name === studentName).slice(0, 15);
+            
             if (studentActivities.length === 0) {
                  modalActivityContainer.innerHTML = '<p class="dashboard-empty-state">لا توجد أنشطة مسجلة لهذا الطالب.</p>';
             } else {
@@ -371,9 +416,11 @@ async function showStudentDetails(studentId, studentName) {
     }
 }
 
+// إغلاق النافذة عند الضغط على الزر أو الخارج
 function closeModal() {
     if (modal) {
         modal.style.display = 'none';
+        // مسح البيانات القديمة
         modalStudentName.innerText = '...';
         modalStatsContainer.innerHTML = '';
         modalResultsContainer.innerHTML = '';
