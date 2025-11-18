@@ -997,3 +997,35 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
 .admin-modal-content .admin-table-container {
     max-height: 250px; /* ارتفاع أصغر للنافذة */
 }
+
+/* --- (جديد v1.9.1) تنسيقات أزرار الحظر --- */
+.admin-action-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.9rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+}
+.admin-action-btn.block-btn {
+    background-color: var(--color-incorrect);
+}
+.admin-action-btn.block-btn:hover {
+    opacity: 0.8;
+}
+.admin-action-btn.unblock-btn {
+    background-color: var(--color-correct);
+}
+.admin-action-btn.unblock-btn:hover {
+    opacity: 0.8;
+}
+/* (*** جديد: لون زر حظر البصمة ***) */
+.admin-action-btn.block-fp-btn {
+    background-color: #3498db; /* لون أزرق */
+}
+.admin-action-btn.block-fp-btn:hover {
+    opacity: 0.8;
+}
