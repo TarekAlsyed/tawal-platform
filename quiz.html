@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>اختبار | Tawal Academy</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4e54c8">
     
     <link rel="icon" href="icon-192x192.png" type="image/png">
     
-    <link rel="stylesheet" href="style.css?v=1.7"> 
+    <link rel="stylesheet" href="style.css?v=1.9"> 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -26,6 +28,7 @@
 
         <div class="quiz-body" id="quiz-body">
             <h3 id="question-text">جاري تحميل السؤال...</h3>
+            
             <div class="options-container" id="tf-options-container" style="display: none;">
                 <button class="option-btn" data-answer="true">
                     <span class="option-text">صح</span>
@@ -36,22 +39,25 @@
                     <span class="icon"></span>
                 </button>
             </div>
+
             <div class="options-container" id="mc-options-container" style="display: none;">
                 <button class="option-btn" data-index="0"><span class="option-text">...</span><span class="icon"></span></button>
                 <button class="option-btn" data-index="1"><span class="option-text">...</span><span class="icon"></span></button>
                 <button class="option-btn" data-index="2"><span class="option-text">...</span><span class="icon"></span></button>
                 <button class="option-btn" data-index="3"><span class="option-text">...</span><span class="icon"></span></button>
             </div>
+            
             <p id="feedback" class="feedback"></p>
         </div>
 
         <div class="results-container" id="results-container" style="display: none;">
-            </div>
+        </div>
 
         <div class="quiz-footer" id="quiz-footer">
             <button id="next-btn" class="next-btn" disabled>السؤال التالي ←</button>
         </div>
     </div>
 
-  <script src="app.js?v=8.0"></script> </body>
+  <script src="app.js?v=10.9.0"></script> 
+</body>
 </html>
