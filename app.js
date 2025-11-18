@@ -1,33 +1,37 @@
 /*
- * =================================================================================
- * APP.JS - Tawal Academy Client Logic
- * Version: 11.4.0 (Final Production Build)
- * =================================================================================
- * * This file contains the entire frontend logic.
- * * All features merged: Smart Registration, Blocking, Fingerprinting, Quizzes, and Summaries.
- * =================================================================================
+ * app.js - Tawal Academy (v11.5.0 - الإصدار النهائي الشامل)
+ * =========================================================
+ * * يتضمن هذا الملف كافة وظائف الواجهة الأمامية للمنصة:
+ * 1. إعدادات الاتصال بالخادم والمتغيرات العامة.
+ * 2. دوال مساعدة للتحقق من صحة البيانات (الاسم، البريد).
+ * 3. دوال الاتصال بالخادم (API Calls).
+ * 4. نظام المصادقة والحماية (التسجيل، الدخول، البصمة، الحظر).
+ * 5. نقطة الانطلاق الرئيسية لتشغيل التطبيق.
+ * 6. دوال إدارة الصفحات (الرئيسية، الملخص، لوحة التقدم، الاختبارات).
+ * 7. محرك الاختبارات (Quiz Engine).
+ * =========================================================
  */
 
 /* -------------------------------------------------------------------------- */
-/* 1. Connection Settings and Global Variables                                */
+/* 1. إعدادات الاتصال والمتغيرات العامة                                      */
 /* -------------------------------------------------------------------------- */
 
-// Server URL (Backend)
+// رابط الخادم الخلفي (Backend URL)
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-// Storage Keys (v4 to force update)
-const STORAGE_KEY_ID = 'tawal_studentId_v4'; 
+// مفاتيح التخزين المحلي (Local Storage Keys) - الإصدار v4 لإجبار التحديث
+const STORAGE_KEY_ID = 'tawal_studentId_v4';
 const STORAGE_KEY_NAME = 'tawal_studentName_v4';
 
-// Session Variables
+// متغيرات الجلسة الحالية
 let STUDENT_ID = localStorage.getItem(STORAGE_KEY_ID);
 let FINGERPRINT_ID = null;
 
-// Other Settings
+// إعدادات إضافية
 const PROGRESS_KEY = 'tawalAcademyProgress_v1';
 const DEFAULT_SUBJECT = 'gis_networks';
 
-// Academy Logo
+// شعار الأكاديمية (SVG)
 const LOGO_SVG = `
     <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
         <path d="M40 8H8c-2.21 0-4 1.79-4 4v24c0 2.21 1.79 4 4 4h32c2.21 0 4-1.79 4-4V12c0-2.21-1.79-4-4-4z" fill="currentColor"/>
@@ -37,7 +41,7 @@ const LOGO_SVG = `
 `;
 
 /* -------------------------------------------------------------------------- */
-/* 2. Subject List                                                            */
+/* 2. قائمة المواد الدراسية (Subjects List)                                  */
 /* -------------------------------------------------------------------------- */
 
 const SUBJECTS = {
@@ -72,11 +76,15 @@ const SUBJECTS = {
 };
 
 /* -------------------------------------------------------------------------- */
-/* 3. Helper and Validation Functions                                         */
+/* 3. دوال المساعدة والتحقق (Helpers)                                        */
 /* -------------------------------------------------------------------------- */
 
-function $(id) { return document.getElementById(id); }
+// دالة لاختصار الوصول للعناصر عبر المعرف (ID)
+function $(id) {
+    return document.getElementById(id);
+}
 
+// دالة للحصول على مفتاح المادة الحالية من رابط الصفحة
 function getSubjectKey() {
     try {
         const params = new URLSearchParams(window.location.search);
@@ -86,30 +94,31 @@ function getSubjectKey() {
     }
 }
 
-// Name Validation (3+ chars)
+// دالة التحقق من صحة الاسم (يجب أن يكون 3 أحرف على الأقل)
 function isValidName(name) {
+    // السماح بالحروف العربية والإنجليزية والمسافات، بطول 3 إلى 50 حرف
     const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/;
     return nameRegex.test(name.trim());
 }
 
-// Email Validation
+// دالة التحقق من صحة البريد الإلكتروني (تنسيق قياسي)
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email.trim());
 }
 
-// File Existence Check
+// دالة للتحقق من وجود ملف على الخادم قبل عرضه (تمنع أخطاء 404)
 async function fileExists(url) {
     try {
         const response = await fetch(url, { method: 'HEAD' });
         return response.ok;
     } catch (e) {
-        console.warn(`File check failed for ${url}`);
+        console.warn(`فشل التحقق من الملف: ${url}`);
         return false;
     }
 }
 
-// Hide Content on Block
+// دالة لعرض شاشة "محتوى محظور" أو "خطأ" بشكل منسق
 function hideContent(title, message) {
     const quizContainer = document.querySelector('.quiz-container');
     const mainContainer = document.querySelector('.main-container');
@@ -131,14 +140,16 @@ function hideContent(title, message) {
     } else if (mainContainer) {
         mainContainer.innerHTML = mainHtml;
     } else {
+        // في حال عدم وجود حاويات، استبدل محتوى الصفحة بالكامل
         document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">${title}</h1><p style="text-align: center;">${message}</p>`;
     }
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. Server API Calls                                                        */
+/* 4. دوال الاتصال بالخادم (Backend API Calls)                               */
 /* -------------------------------------------------------------------------- */
 
+// تسجيل نشاط المستخدم (مثل فتح اختبار أو ملخص)
 function logActivity(activityType, subjectName = null) {
     if (!STUDENT_ID) return; 
     fetch(`${API_URL}/log-activity`, {
@@ -157,6 +168,7 @@ function logActivity(activityType, subjectName = null) {
     .catch(err => console.error('فشل تسجيل النشاط:', err));
 }
 
+// حفظ نتيجة الاختبار في قاعدة البيانات
 function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     if (!STUDENT_ID) return;
     fetch(`${API_URL}/quiz-results`, {
@@ -171,83 +183,71 @@ function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
         })
     })
     .then(res => res.json())
-    .then(data => {
-        if (data.id) console.log('✓ تم حفظ النتيجة في قاعدة البيانات:', data.message);
-        else console.error('فشل حفظ النتيجة في قاعدة البيانات:', data.error);
-    })
-    .catch(err => console.error('خطأ فادح في الاتصال لحفظ النتيجة:', err));
+    .then(data => console.log('✓ تم حفظ النتيجة بنجاح'))
+    .catch(err => console.error('خطأ في حفظ النتيجة:', err));
 }
 
+// تحميل بيانات المادة (الأسئلة والملخص) من ملفات JSON
 function loadSubjectData(subjectKey) {
     return new Promise((resolve, reject) => {
         if (!subjectKey || !SUBJECTS[subjectKey]) {
-            reject(new Error('Invalid subject key'));
+            reject(new Error('المادة غير صالحة'));
             return;
         }
+        // إضافة طابع زمني (timestamp) لمنع التخزين المؤقت (Caching) للملفات
+        const qUrl = `data_${subjectKey}/data_${subjectKey}_quiz.json?v=${Date.now()}`;
+        const sUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
 
-        const quizUrl = `data_${subjectKey}/data_${subjectKey}_quiz.json?v=${Date.now()}`;
-        const summaryUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
-
-        const fetchQuiz = fetch(quizUrl)
-            .then(response => response.ok ? response.json() : {})
-            .catch(error => {
-                console.warn(`Could not load quiz file for ${subjectKey}:`, error.message);
-                return {};
-            });
-
-        const fetchSummary = fetch(summaryUrl)
-            .then(response => response.ok ? response.json() : {})
-            .catch(error => {
-                console.warn(`Could not load summary file for ${subjectKey}:`, error.message);
-                return {};
-            });
-
-        Promise.all([fetchQuiz, fetchSummary])
-            .then(results => {
-                const quizData = results[0];
-                const summaryData = results[1];
-                const combinedData = { quizData: quizData, summaryData: summaryData };
-                resolve(combinedData);
-            })
-            .catch(error => {
-                console.error(`Unexpected error loading data for ${subjectKey}:`, error);
-                reject(error);
-            });
+        Promise.all([
+            fetch(qUrl).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+            fetch(sUrl).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+        ])
+        .then(results => {
+            resolve({ quizData: results[0], summaryData: results[1] });
+        })
+        .catch(reject);
     });
 }
 
+
 /* -------------------------------------------------------------------------- */
-/* 5. Authentication System (Register, Login, Security)                       */
+/* 5. نظام المصادقة والحماية (Authentication System)                         */
 /* -------------------------------------------------------------------------- */
 
+// الحصول على بصمة الجهاز الفريدة (Fingerprint)
 async function getFingerprint() {
     try {
         const fp = await FingerprintJS.load();
         const result = await fp.get();
         return result.visitorId;
     } catch (err) {
-        console.error('فشل جلب البصمة:', err);
+        console.error('فشل الحصول على بصمة الجهاز:', err);
         return null;
     }
 }
 
-// (Smart Registration)
+// دالة تسجيل الطالب الجديد (النسخة الذكية)
 async function registerStudent(fingerprint) {
+    // طلب الاسم (رسالة مبسطة)
     let name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء كتابة اسمك:');
     
+    // التحقق من صحة الاسم
     while (!name || !isValidName(name)) {
-        if (name === null) return false; 
+        if (name === null) return false; // المستخدم ضغط "إلغاء"
         name = prompt('الرجاء كتابة اسمك (حروف فقط):');
     }
 
+    // طلب البريد الإلكتروني (رسالة مبسطة)
     let email = prompt('الرجاء كتابة البريد الإلكتروني:');
     
+    // التحقق من صحة البريد
     while (!email || !isValidEmail(email)) {
-        if (email === null) return false; 
+        if (email === null) return false; // المستخدم ضغط "إلغاء"
         email = prompt('الرجاء كتابة البريد الإلكتروني بشكل صحيح:');
     }
 
     try {
+        // إرسال طلب التسجيل للخادم
         const response = await fetch(`${API_URL}/students/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -256,49 +256,59 @@ async function registerStudent(fingerprint) {
         
         const data = await response.json();
 
+        // التحقق من حالة الحظر (403 Forbidden)
         if (response.status === 403) {
             hideContent('الجهاز محظور', data.error);
             return false;
         }
 
+        // في حالة النجاح (أو استرجاع حساب موجود)
         if (data.id) {
             STUDENT_ID = data.id;
             localStorage.setItem(STORAGE_KEY_ID, data.id);
             localStorage.setItem(STORAGE_KEY_NAME, data.name);
             
             if (data.message && data.message.includes('موجود')) {
-                alert(`أهلاً بعودتك يا ${data.name}! (تم استرجاع حسابك)`);
+                alert(`أهلاً بعودتك يا ${data.name}! (تم استرجاع بياناتك)`);
             } else {
                 alert(`أهلاً بك يا ${data.name}! تم التسجيل بنجاح.`);
             }
             return true;
         } 
         
+        // في حالة وجود مشكلة أخرى في البريد
         else if (data.error && data.error.includes('البريد الإلكتروني مسجل بالفعل')) {
-            alert('⚠️ هذا البريد مسجل بالفعل، لكن الخادم لم يستطع استرجاع بياناتك.\nحاول مرة أخرى لاحقاً.');
+            alert('⚠️ هذا البريد مسجل بالفعل، لكن حدثت مشكلة في استرجاع البيانات. حاول مرة أخرى لاحقاً.');
             return false;
         } else {
-            alert('حدث خطأ: ' + data.error);
+            alert('حدث خطأ غير متوقع: ' + data.error);
             return false;
         }
+
     } catch (err) {
         console.error(err);
-        alert('فشل الاتصال بالخادم.');
+        alert('فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
         return false;
     }
 }
 
+// التحقق من هوية الطالب الحالي وصلاحيته
 async function verifyStudent(localId) {
-    if (!localId) return { status: 'new_user' };
+    if (!localId) return { status: 'new_user' }; // مستخدم جديد
 
     try {
         const response = await fetch(`${API_URL}/students/${localId}`);
+        
         if (response.ok) {
             const student = await response.json();
-            if (student.isblocked) return { status: 'account_blocked' };
+            // التحقق مما إذا كان الحساب محظوراً
+            if (student.isblocked) {
+                return { status: 'account_blocked' };
+            }
             STUDENT_ID = localId;
             return { status: 'valid' };
         } else {
+            // المعرف غير موجود في قاعدة البيانات (ربما تم حذفه أو قاعدة بيانات جديدة)
             return { status: 'id_mismatch' };
         }
     } catch (err) {
@@ -306,6 +316,7 @@ async function verifyStudent(localId) {
     }
 }
 
+// تسجيل الدخول باستخدام البصمة (للتحقق من الحظر وتحديث السجلات)
 async function loginWithFingerprint(studentId, fingerprint) {
     if (!studentId || !fingerprint) return { status: 'error' };
     
@@ -329,58 +340,71 @@ async function loginWithFingerprint(studentId, fingerprint) {
     }
 }
 
+// سؤال الأمان (التحقق البشري في الصفحة الرئيسية)
 function checkAccessPermission() {
     const ans = prompt("هل صليت على النبي اليوم؟\n\nمفتاح الدخول: صلى الله عليه وسلم", "");
     if (!ans) return false;
     
+    // تنظيف النص المدخل من التشكيل والمسافات الزائدة
     const norm = ans.replace(/[\u064B-\u0652]/g, '')
                     .replace(/ـ/g, '')
                     .replace(/[ى]/g, 'ي')
                     .replace(/صلِ/g, 'صل')
                     .trim();
                     
+    // التحقق من وجود الكلمات المفتاحية
     return ["صلي", "الله", "عليه", "وسلم", "صل"].some(k => norm.includes(k));
 }
 
 /* -------------------------------------------------------------------------- */
-/* 6. Main Execution                                                          */
+/* 5. نقطة الانطلاق الرئيسية (Main Execution Point)                           */
 /* -------------------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    initThemeToggle();
+    initThemeToggle(); // تفعيل الوضع الليلي
     
+    // 1. الحصول على بصمة الجهاز
     FINGERPRINT_ID = await getFingerprint();
 
+    // 2. التحقق من حالة المستخدم
     const localId = localStorage.getItem(STORAGE_KEY_ID);
     const verification = await verifyStudent(localId);
 
+    // أ. الحساب محظور
     if (verification.status === 'account_blocked') {
         hideContent('الحساب محظور', 'تم إيقاف هذا الحساب. الرجاء التواصل مع الإدارة.');
         return;
     }
     
+    // ب. مستخدم جديد أو بيانات غير متطابقة (يتطلب تسجيل)
     if (verification.status === 'id_mismatch' || verification.status === 'new_user') {
+        // مسح البيانات القديمة لضمان بداية نظيفة
         localStorage.removeItem(STORAGE_KEY_ID);
         localStorage.removeItem(STORAGE_KEY_NAME);
         
         const isRegistered = await registerStudent(FINGERPRINT_ID);
-        if (!isRegistered) return; 
+        if (!isRegistered) return; // فشل التسجيل أو الإلغاء
     }
 
+    // 3. سؤال الأمان (يظهر فقط في الصفحة الرئيسية)
     const subjectsGrid = $('subjects-grid'); 
     if (subjectsGrid) {
         if (!checkAccessPermission()) {
-            hideContent('الوصول مرفوض', 'الإجابة غير صحيحة.');
+            hideContent('الوصول مرفوض', 'الإجابة غير صحيحة. حاول مرة أخرى.');
             return; 
         }
     }
     
+    // 4. محاولة تسجيل الدخول في الخلفية
     const loginResult = await loginWithFingerprint(STUDENT_ID, FINGERPRINT_ID);
+    
+    // ج. الجهاز محظور (بناءً على البصمة)
     if (loginResult.status === 'fingerprint_blocked') {
         hideContent('الجهاز محظور', loginResult.message);
         return;
     }
 
+    // 5. تحميل وتوجيه محتوى الصفحة بناءً على نوعها
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
@@ -388,13 +412,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         if (subjectsGrid) {
-            initIndexPage();
+            initIndexPage(); // الصفحة الرئيسية
         } else if (quizBody) {
-            await initQuizPage(subjectKey);
+            await initQuizPage(subjectKey); // صفحة الاختبار
         } else if (summaryFilesContent) {
-            await initSummaryPage(subjectKey);
+            await initSummaryPage(subjectKey); // صفحة الملخص
         } else if (dashboardContent) { 
-            initDashboardPage(); 
+            initDashboardPage(); // صفحة لوحة التقدم
         }
     } catch (err) {
         console.error('Initialization error', err);
@@ -403,9 +427,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 /* -------------------------------------------------------------------------- */
-/* 7. Page Logic                                                              */
+/* 6. دوال إدارة الصفحات (Page Controllers)                                  */
 /* -------------------------------------------------------------------------- */
 
+// تهيئة زر تبديل الوضع (Themes)
 function initThemeToggle() {
     const btn = $('theme-toggle-btn');
     const saved = localStorage.getItem('theme') || 'dark';
@@ -420,6 +445,7 @@ function initThemeToggle() {
     }
 }
 
+// --- (أ) الصفحة الرئيسية ---
 async function initIndexPage() {
     const grid = $('subjects-grid');
     if (!grid) return;
@@ -428,6 +454,7 @@ async function initIndexPage() {
     const logoEl = document.querySelector('.main-header .logo');
     if(logoEl) logoEl.innerHTML = LOGO_SVG;
     
+    // إنشاء بطاقات المواد
     for (const key in SUBJECTS) {
         const s = SUBJECTS[key];
         const card = document.createElement('div');
@@ -445,12 +472,13 @@ async function initIndexPage() {
         grid.appendChild(card);
     }
     
+    // تفعيل البطاقات المتاحة
     const allCards = grid.querySelectorAll('.subject-card');
-
     for (const card of allCards) {
         await loadAndEnableCard(card.dataset.subjectKey, card);
     }
 
+    // تفعيل شريط البحث
     const searchBar = $('search-bar');
     if (searchBar) {
         searchBar.addEventListener('input', (e) => {
@@ -458,6 +486,7 @@ async function initIndexPage() {
             let visibleCount = 0;
             allCards.forEach(card => {
                 const title = SUBJECTS[card.dataset.subjectKey].title.toLowerCase();
+                // بحث مرن (يتجاهل التشكيل)
                 const vis = title.normalize("NFKD").replace(/[\u064B-\u0652]/g, "").includes(searchTerm.normalize("NFKD").replace(/[\u064B-\u0652]/g, ""));
                 card.style.display = vis ? 'flex' : 'none';
                 if(vis) visibleCount++;
@@ -467,9 +496,11 @@ async function initIndexPage() {
     }
 }
 
+// تفعيل أزرار المادة إذا توفرت بياناتها
 async function loadAndEnableCard(key, cardElement) {
     try {
         const data = await loadSubjectData(key); 
+        // تفعيل زر الاختبار
         if (data && data.quizData && data.quizData.questions && data.quizData.questions.length > 0) {
             const quizBtn = cardElement.querySelector('.btn-quiz');
             if(quizBtn) {
@@ -478,7 +509,7 @@ async function loadAndEnableCard(key, cardElement) {
                 quizBtn.setAttribute('aria-disabled', 'false');
             }
         }
-        
+        // تفعيل زر الملخص
         if (data && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0 || data.summaryData.content?.length > 100)) { 
             const summaryBtn = cardElement.querySelector('.btn-summary');
             if(summaryBtn) {
@@ -490,6 +521,7 @@ async function loadAndEnableCard(key, cardElement) {
     } catch (e) {}
 }
 
+// --- (ب) صفحة الملخص ---
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     const tabsContainer = document.querySelector('.summary-tabs');
@@ -522,6 +554,7 @@ async function initSummaryPage(subjectKey) {
         if (hasFiles || hasImages) {
             tabsContainer.style.display = 'flex';
             
+            // 1. عرض الملفات
             if (hasFiles) {
                 let filesHtml = '<ul class="file-download-list">';
                 const checks = data.summaryData.files.map(async f => {
@@ -532,9 +565,10 @@ async function initSummaryPage(subjectKey) {
                     } return '';
                 });
                 const res = await Promise.all(checks);
-                filesContentEl.innerHTML = res.join('') || '<p class="placeholder">لا توجد ملفات.</p>';
+                filesContentEl.innerHTML = res.join('') || '<p class="placeholder">لا توجد ملفات متاحة.</p>';
             } else { filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات.</p>'; }
             
+            // 2. عرض الصور
             if (hasImages) {
                 let imgHtml = '<div class="gallery-grid">';
                 const checks = data.summaryData.images.map(async i => {
@@ -550,28 +584,50 @@ async function initSummaryPage(subjectKey) {
             filesContentEl.appendChild(backBtn.cloneNode(true));
             imagesContentEl.appendChild(backBtn.cloneNode(true));
         
+            // منطق التبويبات
             const fTab = $('btn-summary-files');
             const iTab = $('btn-summary-images');
-            fTab.addEventListener('click', () => { filesContentEl.style.display='block'; imagesContentEl.style.display='none'; fTab.classList.add('active'); iTab.classList.remove('active'); logActivity('Viewed Summary Files', subjectTitle); });
-            iTab.addEventListener('click', () => { filesContentEl.style.display='none'; imagesContentEl.style.display='block'; fTab.classList.remove('active'); iTab.classList.add('active'); logActivity('Viewed Image Gallery', subjectTitle); });
+
+            fTab.addEventListener('click', () => {
+                filesContentEl.style.display = 'block';
+                imagesContentEl.style.display = 'none';
+                fTab.classList.add('active');
+                iTab.classList.remove('active');
+                logActivity('Viewed Summary Files', subjectTitle);
+            });
+
+            iTab.addEventListener('click', () => {
+                filesContentEl.style.display = 'none';
+                imagesContentEl.style.display = 'block';
+                fTab.classList.remove('active');
+                iTab.classList.add('active');
+                logActivity('Viewed Image Gallery', subjectTitle);
+            });
             
+            // تحديد التبويب الافتراضي
+            if (foundFilesCount > 0) fTab.click(); 
+            else if (foundImagesCount > 0) iTab.click();
+            else fTab.click();
+
+            // تفعيل عارض الصور (Lightbox)
             const modal = $('lightbox-modal');
-            if(modal) {
+            if (modal) {
                 const modalImg = $('lightbox-img');
                 const closeModal = $('lightbox-close');
-                closeModal.onclick = () => modal.classList.remove('show');
-                modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+                
+                const closeLightbox = () => modal.classList.remove('show');
+                closeModal.onclick = closeLightbox;
+                modal.onclick = (e) => { if (e.target === modal) closeLightbox(); };
+                
+                // تفعيل الضغط بعد تحميل العناصر
                 setTimeout(() => {
                     document.querySelectorAll('.gallery-item img').forEach(img => img.onclick = () => { modal.classList.add('show'); modalImg.src = img.src; });
                     filesContentEl.querySelectorAll('img').forEach(img => img.onclick = () => { modal.classList.add('show'); modalImg.src = img.src; });
                 }, 500);
             }
-            
-            if (foundFilesCount > 0) fTab.click(); 
-            else if (foundImagesCount > 0) iTab.click();
-            else fTab.click();
 
         } else if (hasOldContent) {
+            // دعم المحتوى النصي القديم
             tabsContainer.style.display = 'none';
             imagesContentEl.style.display = 'none';
             filesContentEl.innerHTML = data.summaryData.content;
@@ -584,11 +640,12 @@ async function initSummaryPage(subjectKey) {
             filesContentEl.innerHTML = '<p class="placeholder">الملخص غير متاح.</p>';
         }
     } catch (e) {
-        console.error('Failed to load summary', e);
+        console.error(e);
         titleEl.innerText = 'خطأ في التحميل';
     }
 }
 
+// --- (ج) لوحة التقدم ---
 async function initDashboardPage() {
     const container = $('dashboard-content');
     if (!container) return;
@@ -601,82 +658,48 @@ async function initDashboardPage() {
     container.innerHTML = '<p class="dashboard-empty-state">جاري تحميل إحصائياتك...</p>';
 
     try {
-        const statsResponse = await fetch(`${API_URL}/students/${STUDENT_ID}/stats`);
-        const stats = await statsResponse.json();
+        // جلب البيانات من الخادم
+        const [stats, results] = await Promise.all([
+            fetch(`${API_URL}/students/${STUDENT_ID}/stats`).then(r=>r.json()),
+            fetch(`${API_URL}/students/${STUDENT_ID}/results`).then(r=>r.json())
+        ]);
 
-        const resultsResponse = await fetch(`${API_URL}/students/${STUDENT_ID}/results`);
-        const results = await resultsResponse.json();
-
-        if (stats.error || results.error) {
-            throw new Error('فشل جلب البيانات');
-        }
+        if (stats.error) throw new Error('فشل التحميل');
 
         if (stats.totalQuizzes === 0) {
             container.innerHTML = '<p class="dashboard-empty-state">لم تقم بإجراء أي اختبارات بعد.</p>';
             return;
         }
 
-        const summaryHtml = `
+        // عرض ملخص الإحصائيات
+        let html = `
             <div class="dashboard-summary-grid">
-                <div class="summary-box">
-                    <p class="summary-box-label">إجمالي الاختبارات</p>
-                    <p class="summary-box-value">${stats.totalQuizzes}</p>
-                </div>
-                <div class="summary-box">
-                    <p class="summary-box-label">متوسط النقاط</p>
-                    <p class="summary-box-value ${stats.averageScore >= 50 ? 'correct' : 'incorrect'}">${stats.averageScore}</p>
-                </div>
-                <div class="summary-box">
-                    <p class="summary-box-label">أفضل نتيجة</p>
-                    <p class="summary-box-value level-excellent">${stats.bestScore}</p>
-                </div>
-            </div>
-            <div class="results-divider"></div>
-        `;
+                <div class="summary-box"><p class="summary-box-label">إجمالي الاختبارات</p><p class="summary-box-value">${stats.totalQuizzes}</p></div>
+                <div class="summary-box"><p class="summary-box-label">متوسط النقاط</p><p class="summary-box-value ${stats.averageScore>=50?'correct':'incorrect'}">${stats.averageScore}</p></div>
+                <div class="summary-box"><p class="summary-box-label">أفضل نتيجة</p><p class="summary-box-value level-excellent">${stats.bestScore}</p></div>
+            </div><div class="results-divider"></div>`;
 
-        const resultsByQuiz = {};
-        results.forEach(att => {
-            if (!resultsByQuiz[att.quizName]) {
-                resultsByQuiz[att.quizName] = [];
-            }
-            resultsByQuiz[att.quizName].push(att);
-        });
+        // تجميع النتائج حسب اسم الاختبار
+        const byQuiz = {};
+        results.forEach(r => { if(!byQuiz[r.quizName]) byQuiz[r.quizName]=[]; byQuiz[r.quizName].push(r); });
 
-        let subjectCardsHtml = '';
-        for (const quizName in resultsByQuiz) {
-            let historyListHtml = '<ul class="history-list">';
-            resultsByQuiz[quizName].forEach(att => {
-                let scoreClass = 'level-fail';
-                if (att.score >= 300) scoreClass = 'level-excellent';
-                else if (att.score >= 150) scoreClass = 'level-good';
-                else if (att.score >= 50) scoreClass = 'level-pass';
-
-                historyListHtml += `
-                    <li class="history-item">
-                        <span class="score ${scoreClass}">📈 ${att.score} نقطة</span>
-                        <span class="score-details">( ${att.correctAnswers} / ${att.totalQuestions} )</span>
-                        <span class="history-date">${new Date(att.completedAt).toLocaleDateString('ar-EG')}</span>
-                    </li>
-                `;
+        for (const q in byQuiz) {
+            html += `<div class="subject-history-card"><h3>${q}</h3><ul class="history-list">`;
+            byQuiz[q].forEach(r => {
+                let cls = r.score>=300?'excellent':r.score>=150?'good':r.score>=50?'pass':'fail';
+                html += `<li class="history-item"><span class="score level-${cls}">${r.score} نقطة</span><span class="score-details">(${r.correctAnswers}/${r.totalQuestions})</span><span class="history-date">${new Date(r.completedAt).toLocaleDateString('ar-EG')}</span></li>`;
             });
-            historyListHtml += '</ul>';
-
-            subjectCardsHtml += `
-                <div class="subject-history-card">
-                    <h3>${quizName}</h3>
-                    ${historyListHtml}
-                </div>
-            `;
+            html += '</ul></div>';
         }
-
-        container.innerHTML = summaryHtml + subjectCardsHtml;
+        container.innerHTML = html;
 
     } catch (err) {
-        console.error('فشل تحميل لوحة التقدم:', err);
-        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات.</p>';
+        console.error(err);
+        container.innerHTML = '<p class="dashboard-empty-state" style="color: var(--color-incorrect);">فشل تحميل الإحصائيات. الرجاء التأكد من الاتصال.</p>';
     }
 }
 
+// --- (د) صفحة الاختبار ---
 async function initQuizPage(subjectKey) {
     const titleEl = $('quiz-title');
     const questionTextEl = $('question-text');
@@ -707,13 +730,14 @@ async function initQuizPage(subjectKey) {
 
     } catch (e) {
         console.error('Failed to init quiz page', e);
-        titleEl.innerText = 'خطأ';
+        titleEl.innerText = 'خطأ في التحميل';
     }
 }
 
 /* -------------------------------------------------------------------------- */
-/* 8. Quiz Engine                                                            */
+/* 7. محرك الاختبارات (Quiz Engine Logic)                                    */
 /* -------------------------------------------------------------------------- */
+
 function runQuizEngine(quizObj, subjectKey) {
     const questions = quizObj.questions;
     let currentIdx = 0;
@@ -722,29 +746,31 @@ function runQuizEngine(quizObj, subjectKey) {
     let incorrectList = []; 
     let questionStartTime = 0;
 
-    const quizTitleEl = $('quiz-title');
-    const questionTextEl = $('question-text');
-    const tfContainer = $('tf-options-container');
-    const mcContainer = $('mc-options-container');
-    const progressBar = $('progress-bar');
-    const questionCounter = $('question-counter');
-    const feedbackEl = $('feedback');
-    const resultsContainer = $('results-container');
-    const quizBody = $('quiz-body');
-    const quizFooter = $('quiz-footer');
+    // عناصر واجهة الاختبار
+    const qTitle = $('quiz-title');
+    const qText = $('question-text');
+    const feedback = $('feedback');
+    const tfDiv = $('tf-options-container');
+    const mcDiv = $('mc-options-container');
     const nextBtn = $('next-btn');
+    const resDiv = $('results-container');
+    const bodyDiv = $('quiz-body');
+    const quizFooter = $('quiz-footer');
 
-    quizTitleEl.innerText = quizObj.title || 'اختبار';
+    qTitle.innerText = quizObj.title || 'اختبار';
+
+    // خلط الأسئلة
     let questionsShuffled = [...questions].sort(() => Math.random() - 0.5);
 
+    // دالة بدء الاختبار
     function startQuiz(questionsToUse = questions) {
         const isReviewMode = questionsToUse !== questions;
         if (isReviewMode) {
             questionsShuffled = [...questionsToUse]; 
-            quizTitleEl.innerText = `${quizObj.title} (مراجعة الأخطاء)`;
+            qTitle.innerText = `${quizObj.title} (مراجعة الأخطاء)`;
         } else {
             questionsShuffled = [...questionsToUse].sort(() => Math.random() - 0.5);
-            quizTitleEl.innerText = quizObj.title;
+            qTitle.innerText = quizObj.title;
             incorrectList = []; 
         }
         
@@ -752,24 +778,27 @@ function runQuizEngine(quizObj, subjectKey) {
         totalScore = 0;
         correctCount = 0;
         
-        quizBody.style.display = 'block';
+        bodyDiv.style.display = 'block';
         quizFooter.style.display = 'block';
-        resultsContainer.style.display = 'none';
+        resDiv.style.display = 'none';
         nextBtn.innerText = 'السؤال التالي ←';
         nextBtn.disabled = true;
+
         loadQuestion();
     }
 
+    // دالة تحميل السؤال الحالي
     function loadQuestion() {
         const currentQuestion = questionsShuffled[currentIdx];
-        questionTextEl.innerText = currentQuestion.question || '';
-        questionCounter.innerText = `السؤال ${currentIdx + 1} / ${questionsShuffled.length}`;
-        progressBar.style.width = `${((currentIdx + 1) / questionsShuffled.length) * 100}%`;
-        feedbackEl.innerText = '';
-        feedbackEl.className = 'feedback';
+        qText.innerText = currentQuestion.question || '';
+        $('question-counter').innerText = `السؤال ${currentIdx + 1} / ${questionsShuffled.length}`;
+        $('progress-bar').style.width = `${((currentIdx + 1) / questionsShuffled.length) * 100}%`;
+        feedback.innerText = '';
+        feedback.className = 'feedback';
         nextBtn.disabled = true;
         questionStartTime = Date.now();
         
+        // إعادة تهيئة الأزرار
         const resetBtns = (container) => {
             container.style.display = 'flex';
             container.querySelectorAll('.option-btn').forEach(btn => {
@@ -780,19 +809,20 @@ function runQuizEngine(quizObj, subjectKey) {
         };
 
         if (currentQuestion.type === 'tf') {
-            mcContainer.style.display = 'none';
-            resetBtns(tfContainer);
-            tfContainer.querySelectorAll('.option-btn').forEach(btn => {
+            mcDiv.style.display = 'none';
+            resetBtns(tfDiv);
+            tfDiv.querySelectorAll('.option-btn').forEach(btn => {
                 btn.onclick = () => {
                     const val = String(btn.dataset.answer).toLowerCase() === 'true';
                     const correct = String(currentQuestion.answer).toLowerCase() === 'true';
                     finalizeAnswer(btn, val === correct);
                 };
             });
+
         } else if (currentQuestion.type === 'mc') {
-            tfContainer.style.display = 'none';
-            resetBtns(mcContainer);
-            const mcBtns = mcContainer.querySelectorAll('.option-btn');
+            tfDiv.style.display = 'none';
+            resetBtns(mcDiv);
+            const mcBtns = mcDiv.querySelectorAll('.option-btn');
             mcBtns.forEach((btn, i) => {
                 if (currentQuestion.options && currentQuestion.options[i]) {
                     btn.style.display = 'flex';
@@ -805,44 +835,51 @@ function runQuizEngine(quizObj, subjectKey) {
         }
     }
 
+    // دالة معالجة الإجابة
     function finalizeAnswer(buttonClicked, isCorrect) {
+        // تعطيل جميع الأزرار
         document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-        const timeTaken = (Date.now() - questionStartTime) / 1000;
         
+        const timeTaken = (Date.now() - questionStartTime) / 1000;
+
         if (isCorrect) {
             correctCount++;
+            // حساب النقاط حسب الصعوبة والسرعة
             let basePoints = 20;
             if (questionsShuffled[currentIdx].difficulty === 'easy') basePoints = 10;
             if (questionsShuffled[currentIdx].difficulty === 'hard') basePoints = 30;
 
             let timeBonus = 0;
-            if (questionsShuffled.length === questions.length) { 
-                if (timeTakenInSeconds < 5) timeBonus = 10; 
-                else if (timeTakenInSeconds < 10) timeBonus = 5;
+            if (questionsShuffled.length === questions.length) { // البونص فقط في الاختبار العادي
+                if (timeTaken < 5) timeBonus = 10; 
+                else if (timeTaken < 10) timeBonus = 5;
             }
 
             totalScore += (basePoints + timeBonus); 
             buttonClicked.classList.add('correct');
-            feedbackEl.innerText = `إجابة صحيحة! +${basePoints + timeBonus} نقطة`;
-            feedbackEl.classList.add('correct');
+            feedback.innerText = `إجابة صحيحة! +${basePoints + timeBonus} نقطة`;
+            feedback.classList.add('correct');
 
         } else {
             buttonClicked.classList.add('incorrect');
-            feedbackEl.innerText = 'إجابة خاطئة.';
-            feedbackEl.classList.add('incorrect');
+            feedback.innerText = 'إجابة خاطئة.';
+            feedback.classList.add('incorrect');
             
+            // إضافة السؤال لقائمة الأخطاء (للمراجعة)
             if (questionsShuffled.length === questions.length) { 
                  incorrectList.push(questionsShuffled[currentIdx]);
             }
             
+            // إظهار الإجابة الصحيحة للمستخدم
             if (questionsShuffled[currentIdx].type === 'tf') {
                 const want = String(questionsShuffled[currentIdx].answer).toLowerCase();
-                tfContainer.querySelector(`.option-btn[data-answer="${want}"]`).classList.add('correct');
+                tfDiv.querySelector(`.option-btn[data-answer="${want}"]`).classList.add('correct');
             } else {
-                mcContainer.querySelectorAll('.option-btn')[questionsShuffled[currentIdx].answer].classList.add('correct');
+                mcDiv.querySelectorAll('.option-btn')[questionsShuffled[currentIdx].answer].classList.add('correct');
             }
         }
         
+        // تفعيل زر التالي
         nextBtn.disabled = false;
         if (currentIdx === questionsShuffled.length - 1) {
             nextBtn.innerText = 'عرض النتيجة';
@@ -858,17 +895,18 @@ function runQuizEngine(quizObj, subjectKey) {
         };
     }
 
+    // دالة عرض النتائج
     function showResults() {
-        quizBody.style.display = 'none';
+        bodyDiv.style.display = 'none';
         quizFooter.style.display = 'none';
-        resultsContainer.style.display = 'flex';
+        resDiv.style.display = 'flex';
         
         const isReviewMode = questionsShuffled.length !== questions.length;
         if (!isReviewMode) { 
             saveQuizResult(
                 quizObj.title || 'اختبار', 
                 totalScore, 
-                totalQuestions,
+                questions.length,
                 correctCount
             );
         }
@@ -876,15 +914,19 @@ function runQuizEngine(quizObj, subjectKey) {
         const percent = Math.round((correctCount / questionsShuffled.length) * 100);
         const chartPercent = percent > 100 ? 100 : percent;
         
-        let reviewBtnHtml = incorrectList.length > 0 ? `<button id="review-btn" class="card-btn btn-summary" style="background-color: var(--color-incorrect); border-color: var(--color-incorrect); color: white;">🔁 مراجعة الأخطاء (${incorrectList.length})</button>` : '';
+        let reviewBtnHtml = incorrectList.length > 0 ? `<button id="review-btn" class="card-btn btn-summary" style="background-color: var(--color-incorrect); color: white;">🔁 مراجعة الأخطاء (${incorrectList.length})</button>` : '';
 
-        resultsContainer.innerHTML = `
+        resDiv.innerHTML = `
             <div class="results-chart" style="--percentage-value: ${chartPercent * 3.6}deg;">
                <span class="percentage-text">${chartPercent}%</span>
             </div>
+            
             <h3 style="font-size: 1.3rem; margin-bottom: 5px;">النتيجة النهائية</h3>
             <h2 style="margin-top: 0; color: var(--primary-color);">${totalScore} نقطة</h2>
-            <p class="results-explanation">أجبت ${correctCount} من ${questionsShuffled.length} بشكل صحيح.</p>
+            <p class="results-explanation">
+                أجبت ${correctCount} من ${questionsShuffled.length} بشكل صحيح.
+            </p>
+            
             <div class="results-actions" style="margin-top:12px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%;">
                 ${reviewBtnHtml}
                 <a href="index.html" class="card-btn btn-summary back-home">الرئيسية</a>
@@ -892,23 +934,27 @@ function runQuizEngine(quizObj, subjectKey) {
             </div>
         `;
         
-        const chart = resultsContainer.querySelector('.results-chart');
-        if (chart) {
-            if (chartPercent >= 90) chart.classList.add('level-excellent');
-            else if (chartPercent >= 75) chart.classList.add('level-good');
-            else if (chartPercent >= 50) chart.classList.add('level-pass');
+        // تلوين الدائرة البيانية حسب النتيجة
+        const chart = resDiv.querySelector('.results-chart');
+        if(chart) {
+            if (percent >= 90) chart.classList.add('level-excellent');
+            else if (percent >= 75) chart.classList.add('level-good');
+            else if (percent >= 50) chart.classList.add('level-pass');
             else chart.classList.add('level-fail');
         }
 
+        // تفعيل أزرار النتيجة
         if (incorrectList.length > 0) {
             $('review-btn').onclick = () => {
                 startQuiz(incorrectList); 
             };
         }
+        
         $('retry-btn').onclick = () => {
             window.location.reload();
         };
     }
 
+    // البدء الفعلي للاختبار
     startQuiz(questions);
 }
