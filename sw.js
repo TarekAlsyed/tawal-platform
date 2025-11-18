@@ -1,15 +1,13 @@
 /*
  * Service Worker (sw.js) for Tawal Academy
- * v1.28 (Cache Busting v28 - Fingerprint Update)
- * تم تحديث الإصدار لإجبار المتصفحات على تحميل ملفات app.js و style.css الجديدة.
+ * v1.29 (Cache Busting v29 - Control Panel & Fingerprint Update)
+ * تم تحديث الإصدار لإجبار المتصفحات على تحميل النسخ الجديدة فوراً.
  */
 
-const CACHE_NAME = 'tawal-academy-cache-v28'; // (*** تم تغيير الرقم إلى v28 ***)
+const CACHE_NAME = 'tawal-academy-cache-v29'; // (*** تم التحديث إلى v29 ***)
 const DATA_CACHE_NAME = 'tawal-data-cache-v11';
 const FONT_CACHE = 'tawal-fonts-cache-v1';
 
-// (تأكد أن هذا المسار يطابق اسم المستودع الخاص بك على GitHub)
-// إذا كان الرابط هو tawal-platform/index.html، اتركه كما هو.
 const BASE_PATH = '/tawal-platform/'; 
 
 const CORE_FILES_TO_CACHE = [
@@ -18,9 +16,9 @@ const CORE_FILES_TO_CACHE = [
     `${BASE_PATH}summary.html`,
     `${BASE_PATH}dashboard.html`,
     `${BASE_PATH}control_panel.html`,
-    `${BASE_PATH}style.css?v=1.9`,       // (تحديث الإصدار)
-    `${BASE_PATH}app.js?v=10.9.0`,       // (تحديث الإصدار)
-    `${BASE_PATH}control_panel.js?v=1.5.0` // (تحديث الإصدار)
+    `${BASE_PATH}style.css?v=1.9`,
+    `${BASE_PATH}app.js?v=10.9.0`,
+    `${BASE_PATH}control_panel.js?v=1.8.0` // (*** تم التحديث ***)
 ];
 
 const FONT_URL = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap';
@@ -30,7 +28,7 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         Promise.all([
             caches.open(CACHE_NAME).then((cache) => {
-                console.log('SW: Caching core files (v28)...');
+                console.log('SW: Caching core files (v29)...');
                 return cache.addAll(CORE_FILES_TO_CACHE);
             }),
             caches.open(FONT_CACHE).then((cache) => {
