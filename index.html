@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tawal Academy | الرئيسية</title>
     
+    <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+    
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4e54c8">
     
     <link rel="icon" href="icon-192x192.png" type="image/png">
 
-    <link rel="stylesheet" href="style.css?v=1.7"> 
+    <link rel="stylesheet" href="style.css?v=1.9"> 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -52,12 +54,14 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // (تأكد من المسار)
-                navigator.serviceWorker.register('/quiz-project2/sw.js')
+                // استخدام مسار نسبي ليعمل على أي استضافة (Github Pages)
+                navigator.serviceWorker.register('./sw.js')
                     .then(registration => console.log('SW Registered from HTML'))
                     .catch(registrationError => console.log('SW registration failed from HTML', registrationError));
             });
         }
     </script>
- <script src="app.js?v=8.0"></script> </body>
+    
+    <script src="app.js?v=10.9.0"></script> 
+</body>
 </html>
