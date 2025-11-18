@@ -1,64 +1,77 @@
 /*
  * Service Worker (sw.js) for Tawal Academy
- * v1.29 (Cache Busting v29 - Control Panel & Fingerprint Update)
- * تم تحديث الإصدار لإجبار المتصفحات على تحميل النسخ الجديدة فوراً.
+ * v1.32 (Cache Busting v32 - Full System Update)
+ * ---------------------------------------------------------
+ * هذا الملف مسؤول عن:
+ * 1. جعل الموقع يعمل بدون إنترنت (Offline Mode).
+ * 2. تخزين الملفات الأساسية (HTML, CSS, JS) في الكاش.
+ * 3. تحديث الملفات تلقائياً عند تغيير رقم الإصدار (CACHE_NAME).
+ * ---------------------------------------------------------
  */
 
-const CACHE_NAME = 'tawal-academy-cache-v29'; // (*** تم التحديث إلى v29 ***)
-const DATA_CACHE_NAME = 'tawal-data-cache-v11';
+// (*** هام: تغيير هذا الرقم يجبر المتصفح على تحميل التحديثات الجديدة ***)
+const CACHE_NAME = 'tawal-academy-cache-v32'; 
+const DATA_CACHE_NAME = 'tawal-data-cache-v13';
 const FONT_CACHE = 'tawal-fonts-cache-v1';
 
+// تأكد أن هذا المسار يطابق اسم المستودع الخاص بك على GitHub
 const BASE_PATH = '/tawal-platform/'; 
 
+// قائمة الملفات التي سيتم تخزينها (يجب أن تطابق الروابط في ملفات HTML)
 const CORE_FILES_TO_CACHE = [
     `${BASE_PATH}index.html`,
     `${BASE_PATH}quiz.html`,
     `${BASE_PATH}summary.html`,
     `${BASE_PATH}dashboard.html`,
     `${BASE_PATH}control_panel.html`,
-    `${BASE_PATH}style.css?v=1.9`,
-    `${BASE_PATH}app.js?v=10.9.0`,
-    `${BASE_PATH}control_panel.js?v=1.8.0` // (*** تم التحديث ***)
+    `${BASE_PATH}style.css?v=1.9`,         // تأكد من تطابق الرقم مع HTML
+    `${BASE_PATH}app.js?v=11.2.0`,          // النسخة النهائية من التطبيق
+    `${BASE_PATH}control_panel.js?v=1.8.0`  // النسخة النهائية من لوحة التحكم
 ];
 
 const FONT_URL = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap';
 
-// 1. التثبيت (Install)
+// 1. مرحلة التثبيت (Install Event)
+// يتم فيها تحميل وتخزين الملفات الأساسية
 self.addEventListener('install', (event) => {
     event.waitUntil(
         Promise.all([
             caches.open(CACHE_NAME).then((cache) => {
-                console.log('SW: Caching core files (v29)...');
+                console.log('SW: Caching core files (v32)...');
                 return cache.addAll(CORE_FILES_TO_CACHE);
             }),
             caches.open(FONT_CACHE).then((cache) => {
                 return cache.add(FONT_URL);
             })
-        ]).then(() => self.skipWaiting())
+        ]).then(() => self.skipWaiting()) // تفعيل السيرفر وركر فوراً
     );
 });
 
-// 2. التفعيل (Activate) - تنظيف الكاش القديم
+// 2. مرحلة التفعيل (Activate Event)
+// يتم فيها حذف الكاش القديم لتوفير المساحة وتحميل الجديد
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
+                    // حذف أي كاش لا يطابق الاسم الجديد
                     if (cacheName !== CACHE_NAME && cacheName !== FONT_CACHE && cacheName !== DATA_CACHE_NAME) {
                         console.log('SW: Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
-        }).then(() => self.clients.claim())
+        }).then(() => self.clients.claim()) // السيطرة على الصفحات المفتوحة فوراً
     );
 });
 
-// 3. جلب البيانات (Fetch)
+// 3. مرحلة جلب البيانات (Fetch Event)
+// تحديد كيفية الاستجابة للطلبات (من الكاش أو من الإنترنت)
 self.addEventListener('fetch', (event) => {
     const requestUrl = new URL(event.request.url);
 
-    // استراتيجية الخطوط: Cache first
+    // أ. استراتيجية الخطوط (Cache First)
+    // نبحث في الكاش أولاً، إذا لم نجد نحمل من النت ونخزن
     if (requestUrl.href === FONT_URL) {
         event.respondWith(
             caches.match(event.request, { cacheName: FONT_CACHE }).then((response) => {
@@ -71,14 +84,17 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // استراتيجية ملفات البيانات (json): Network first
+    // ب. استراتيجية ملفات البيانات JSON (Network First with Cache Fallback)
+    // نحاول جلب أحدث نسخة من النت، إذا فشلنا (أوفلاين) نستخدم الكاش
     if (requestUrl.pathname.includes('/data_') && requestUrl.pathname.endsWith('.json')) {
         event.respondWith(
             caches.open(DATA_CACHE_NAME).then((cache) => {
                 return fetch(event.request).then((networkResponse) => {
+                    // تحديث الكاش بالنسخة الجديدة
                     cache.put(event.request, networkResponse.clone());
                     return networkResponse;
                 }).catch(() => {
+                    // في حالة الأوفلاين، هات القديم
                     return cache.match(event.request);
                 });
             })
@@ -86,7 +102,8 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // استراتيجية الملفات الأساسية: Cache first (Network fallback)
+    // ج. استراتيجية الملفات الأساسية (Cache First)
+    // للملفات الثابتة (HTML, JS, CSS)، استخدم النسخة المكيشة للسرعة
     event.respondWith(
         caches.match(event.request, { cacheName: CACHE_NAME }).then((response) => {
             return response || fetch(event.request);
