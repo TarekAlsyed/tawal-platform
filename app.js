@@ -1,32 +1,33 @@
 /*
  * =================================================================================
  * APP.JS - Tawal Academy Client Logic
- * Version: 11.5.0 (Full Comprehensive Build)
+ * Version: 11.4.0 (Final Production Build)
  * =================================================================================
- * * منطق الواجهة الأمامية بالكامل:
- * - تسجيل ذكي (Smart Registration).
- * - تحقق من الاسم والإيميل.
- * - نظام الحماية والبصمة.
- * - محرك الامتحانات (Quiz Engine).
- * - عارض الملخصات والملفات.
+ * * هذا الملف يحتوي على منطق الواجهة الأمامية بالكامل.
+ * * تم دمج جميع الميزات: التسجيل الذكي، الحظر، البصمة، الامتحانات، والملخصات.
  * =================================================================================
  */
 
-// ---------------------------------------------------------------------------------
-// 1. الإعدادات والمتغيرات العامة
-// ---------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* 1. إعدادات الاتصال والمتغيرات العامة                                      */
+/* -------------------------------------------------------------------------- */
+
+// رابط الخادم (Backend)
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-// مفاتيح التخزين (v4)
+// مفاتيح التخزين (v4 لإجبار التحديث)
 const STORAGE_KEY_ID = 'tawal_studentId_v4'; 
 const STORAGE_KEY_NAME = 'tawal_studentName_v4';
 
+// متغيرات الجلسة
 let STUDENT_ID = localStorage.getItem(STORAGE_KEY_ID);
 let FINGERPRINT_ID = null;
 
+// إعدادات أخرى
 const PROGRESS_KEY = 'tawalAcademyProgress_v1';
 const DEFAULT_SUBJECT = 'gis_networks';
 
+// شعار الأكاديمية
 const LOGO_SVG = `
     <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
         <path d="M40 8H8c-2.21 0-4 1.79-4 4v24c0 2.21 1.79 4 4 4h32c2.21 0 4-1.79 4-4V12c0-2.21-1.79-4-4-4z" fill="currentColor"/>
@@ -35,15 +36,39 @@ const LOGO_SVG = `
     </svg>
 `;
 
-// قائمة المواد
+/* -------------------------------------------------------------------------- */
+/* 2. قائمة المواد الدراسية (Subjects)                                       */
+/* -------------------------------------------------------------------------- */
+
 const SUBJECTS = {
-    gis_networks: { title: "تطبيقات نظم المعلومات الجغرافية فى الشبكات", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>' },
-    transport: { title: "جغرافية النقل والمواصلات", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5 5"></path><path d="M10 17l5 5"></path><path d="M8 17l-5 5"></path><path d="M14 17l-5 5"></path><path d="M2 17h20"></path><path d="M2.6 10.5h18.8"></path><path d="M7 10.5l5 6.5"></path><path d="M17 10.5l-5 6.5"></path><path d="M12 10.5V17"></path><path d="M5.5 10.5C5.5 8 8.45 2 12 2s6.5 6 6.5 8.5Z"></path></svg>' },
-    geo_maps: { title: "الخرائط الجيولوجية", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="m10 14-2 2 2 2"></path><path d="m14 18 2-2-2-2"></path></svg>' },
-    projections: { title: "كتاب مساقط الخرائط", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>' },
-    research: { title: "مقرر مناهج البحث الجغرافى", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.09 13.6-2.2-2.2 2.2-2.2"></path><path d="m10.39 18.4 2.2-2.2-2.2-2.2"></path><path d="M3 22v-3.5a2.5 2.5 0 0 1 2.5-2.5h13A2.5 2.5 0 0 1 21 18.5V22"></path><path d="M2 13.3V3a1 1 0 0 1 1-1h11l5 5v10.3"></path><path d="M14 2v6h6"></path></svg>' },
-    surveying_texts: { title: "نصوص جغرافية فى المساحة والحرائط", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 16 4-4-4-4"></path><path d="m8 16 4-4-4-4"></path><path d="M2 12h20"></path></svg>' },
-    arid_lands: { title: "جغرافيا الاراضي الجافة", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.1 12.4C17.1 12.4 17 14 17 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M5.1 12.4C5.1 12.4 5 14 5 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M11.1 12.4C11.1 12.4 11 14 11 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M12 2v2"></path><path d="m4.9 4.9 1.4 1.4"></path><path d="M2 12h2"></path><path d="m4.9 19.1 1.4-1.4"></path><path d="M12 22v-2"></path><path d="m19.1 19.1-1.4-1.4"></path><path d="M22 12h-2"></path><path d="m19.1 4.9-1.4 1.4"></path></svg>' },
+    gis_networks: {
+        title: "تطبيقات نظم المعلومات الجغرافية فى الشبكات",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>'
+    },
+    transport: {
+        title: "جغرافية النقل والمواصلات",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5 5"></path><path d="M10 17l5 5"></path><path d="M8 17l-5 5"></path><path d="M14 17l-5 5"></path><path d="M2 17h20"></path><path d="M2.6 10.5h18.8"></path><path d="M7 10.5l5 6.5"></path><path d="M17 10.5l-5 6.5"></path><path d="M12 10.5V17"></path><path d="M5.5 10.5C5.5 8 8.45 2 12 2s6.5 6 6.5 8.5Z"></path></svg>'
+    },
+    geo_maps: {
+        title: "الخرائط الجيولوجية",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="m10 14-2 2 2 2"></path><path d="m14 18 2-2-2-2"></path></svg>'
+    },
+    projections: {
+        title: "كتاب مساقط الخرائط",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>'
+    },
+    research: {
+        title: "مقرر مناهج البحث الجغرافى",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.09 13.6-2.2-2.2 2.2-2.2"></path><path d="m10.39 18.4 2.2-2.2-2.2-2.2"></path><path d="M3 22v-3.5a2.5 2.5 0 0 1 2.5-2.5h13A2.5 2.5 0 0 1 21 18.5V22"></path><path d="M2 13.3V3a1 1 0 0 1 1-1h11l5 5v10.3"></path><path d="M14 2v6h6"></path></svg>'
+    },
+    surveying_texts: {
+        title: "نصوص جغرافية فى المساحة والحرائط",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 16 4-4-4-4"></path><path d="m8 16 4-4-4-4"></path><path d="M2 12h20"></path></svg>'
+    },
+    arid_lands: {
+        title: "جغرافيا الاراضي الجافة",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.1 12.4C17.1 12.4 17 14 17 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M5.1 12.4C5.1 12.4 5 14 5 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M11.1 12.4C11.1 12.4 11 14 11 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M12 2v2"></path><path d="m4.9 4.9 1.4 1.4"></path><path d="M2 12h2"></path><path d="m4.9 19.1 1.4-1.4"></path><path d="M12 22v-2"></path><path d="m19.1 19.1-1.4-1.4"></path><path d="M22 12h-2"></path><path d="m19.1 4.9-1.4 1.4"></path></svg>'
+    }
 };
 
 /* -------------------------------------------------------------------------- */
@@ -53,10 +78,15 @@ const SUBJECTS = {
 function $(id) { return document.getElementById(id); }
 
 function getSubjectKey() {
-    try { return new URLSearchParams(window.location.search).get('subject') || DEFAULT_SUBJECT; } catch (e) { return DEFAULT_SUBJECT; }
+    try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('subject') || DEFAULT_SUBJECT;
+    } catch (e) {
+        return DEFAULT_SUBJECT;
+    }
 }
 
-// التحقق من الاسم (3 حروف فأكثر)
+// التحقق من صحة الاسم (3 حروف فأكثر)
 function isValidName(name) {
     const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/;
     return nameRegex.test(name.trim());
@@ -74,53 +104,97 @@ async function fileExists(url) {
         const response = await fetch(url, { method: 'HEAD' });
         return response.ok;
     } catch (e) {
+        console.warn(`File check failed for ${url}`);
         return false;
     }
 }
 
-// إخفاء المحتوى
+// إخفاء المحتوى عند الحظر
 function hideContent(title, message) {
-    const qc = document.querySelector('.quiz-container');
-    const mc = document.querySelector('.main-container');
-    const html = `<header class="main-header"><h1 class="logo">${title}</h1></header><main><p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">${message}</p></main>`;
-    if (qc) { qc.innerHTML = `<div class="quiz-header"><h2>${title}</h2></div><div class="quiz-body"><p class="placeholder" style="color: var(--color-incorrect);">${message}</p></div>`; }
-    else if (mc) { mc.innerHTML = html; }
-    else { document.body.innerHTML = `<h1 style="color:red;text-align:center;margin-top:50px;">${title}</h1><p style="text-align:center;">${message}</p>`; }
+    const quizContainer = document.querySelector('.quiz-container');
+    const mainContainer = document.querySelector('.main-container');
+
+    const htmlContent = `
+        <div class="quiz-header"><h2>${title}</h2></div>
+        <div class="quiz-body">
+            <p class="placeholder" style="color: var(--color-incorrect);">${message}</p>
+        </div>`;
+
+    const mainHtml = `
+        <header class="main-header"><h1 class="logo">${title}</h1></header>
+        <main>
+            <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">${message}</p>
+        </main>`;
+
+    if (quizContainer) {
+        quizContainer.innerHTML = htmlContent;
+    } else if (mainContainer) {
+        mainContainer.innerHTML = mainHtml;
+    } else {
+        document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">${title}</h1><p style="text-align: center;">${message}</p>`;
+    }
 }
 
 /* -------------------------------------------------------------------------- */
-/* 3. دوال الاتصال بالخادم (API)                                            */
+/* 3. دوال الاتصال بالخادم (API Calls)                                      */
 /* -------------------------------------------------------------------------- */
 
 function logActivity(activityType, subjectName = null) {
     if (!STUDENT_ID) return; 
     fetch(`${API_URL}/log-activity`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: STUDENT_ID, activityType, subjectName })
-    }).catch(e => console.error(e));
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            studentId: STUDENT_ID,
+            activityType: activityType,
+            subjectName: subjectName
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.id) console.log(`✓ تم تسجيل النشاط: ${activityType}`);
+    })
+    .catch(err => console.error('فشل تسجيل النشاط:', err));
 }
 
 function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     if (!STUDENT_ID) return;
     fetch(`${API_URL}/quiz-results`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: STUDENT_ID, quizName, score, totalQuestions, correctAnswers })
-    }).catch(e => console.error(e));
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            studentId: STUDENT_ID,
+            quizName: quizName,
+            score: score,
+            totalQuestions: totalQuestions,
+            correctAnswers: correctAnswers
+        })
+    })
+    .then(res => res.json())
+    .then(data => console.log('✓ تم حفظ النتيجة'))
+    .catch(err => console.error('خطأ حفظ النتيجة:', err));
 }
 
 function loadSubjectData(subjectKey) {
     return new Promise((resolve, reject) => {
-        if (!subjectKey || !SUBJECTS[subjectKey]) { reject(new Error('Invalid subject')); return; }
+        if (!subjectKey || !SUBJECTS[subjectKey]) {
+            reject(new Error('Invalid subject'));
+            return;
+        }
         const qUrl = `data_${subjectKey}/data_${subjectKey}_quiz.json?v=${Date.now()}`;
         const sUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
-        Promise.all([fetch(qUrl).then(r=>r.ok?r.json():{}), fetch(sUrl).then(r=>r.ok?r.json():{})])
-            .then(res => resolve({ quizData: res[0], summaryData: res[1] }))
-            .catch(reject);
+
+        Promise.all([
+            fetch(qUrl).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+            fetch(sUrl).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+        ])
+        .then(res => resolve({ quizData: res[0], summaryData: res[1] }))
+        .catch(reject);
     });
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. نظام المصادقة (Authentication)                                         */
+/* 4. نظام المصادقة (Auth)                                                  */
 /* -------------------------------------------------------------------------- */
 
 async function getFingerprint() {
@@ -128,10 +202,13 @@ async function getFingerprint() {
         const fp = await FingerprintJS.load();
         const result = await fp.get();
         return result.visitorId;
-    } catch (err) { return null; }
+    } catch (err) {
+        console.error('فشل جلب البصمة:', err);
+        return null;
+    }
 }
 
-// (*** تسجيل الطلاب الذكي ***)
+// (*** التسجيل الذكي: لا تكرار ***)
 async function registerStudent(fingerprint) {
     let name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء كتابة اسمك:');
     while (!name || !isValidName(name)) {
@@ -154,29 +231,28 @@ async function registerStudent(fingerprint) {
         
         const data = await response.json();
 
-        // حالة الحظر
         if (response.status === 403) {
             hideContent('الجهاز محظور', data.error);
             return false;
         }
 
-        // نجاح (أو استرجاع)
+        // في حال النجاح (أو الحساب موجود والخادم أعاد بياناته)
         if (data.id) {
             STUDENT_ID = data.id;
             localStorage.setItem(STORAGE_KEY_ID, data.id);
             localStorage.setItem(STORAGE_KEY_NAME, data.name);
             
             if (data.message && data.message.includes('موجود')) {
-                alert(`أهلاً بعودتك يا ${data.name}! (تم استرجاع حسابك)`);
+                alert(`أهلاً بعودتك يا ${data.name}!`);
             } else {
-                alert(`أهلاً بك يا ${data.name}! تم التسجيل بنجاح.`);
+                alert(`أهلاً بك يا ${data.name}! تم تسجيلك بنجاح.`);
             }
             return true;
         } 
         
-        // فشل الاسترجاع رغم وجود الإيميل
+        // في حال فشل الخادم في إرجاع البيانات للحساب المكرر
         else if (data.error && data.error.includes('البريد الإلكتروني مسجل بالفعل')) {
-            alert('⚠️ البريد مسجل مسبقاً ولكن تعذر الدخول. حاول مرة أخرى لاحقاً.');
+            alert('⚠️ هذا البريد مسجل بالفعل، لكن الخادم لم يستطع استرجاع بياناتك.\nحاول مرة أخرى لاحقاً.');
             return false;
         } else {
             alert('حدث خطأ: ' + data.error);
@@ -215,8 +291,8 @@ async function loginWithFingerprint(studentId, fingerprint) {
         });
         const data = await response.json();
         if (response.status === 403) return { status: 'fingerprint_blocked', message: data.error };
-        if (response.ok) return { status: 'success' };
-        return { status: 'error' };
+        if (response.ok) return { status: 'success', logId: data.logId };
+        return { status: 'error', message: data.error };
     } catch (e) { return { status: 'error' }; }
 }
 
@@ -228,13 +304,16 @@ function checkAccessPermission() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 5. نقطة الانطلاق (Main Logic)                                             */
+/* 5. نقطة الانطلاق الرئيسية (Main Execution)                                */
 /* -------------------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
+    
+    // 1. جلب البصمة
     FINGERPRINT_ID = await getFingerprint();
 
+    // 2. التحقق من المستخدم (Storage v4)
     const localId = localStorage.getItem(STORAGE_KEY_ID);
     const verification = await verifyStudent(localId);
 
@@ -243,13 +322,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     
+    // 3. التسجيل (إذا كان جديداً أو التخزين قديم)
     if (verification.status === 'id_mismatch' || verification.status === 'new_user') {
         localStorage.removeItem(STORAGE_KEY_ID);
         localStorage.removeItem(STORAGE_KEY_NAME);
+        
         const isRegistered = await registerStudent(FINGERPRINT_ID);
-        if (!isRegistered) return;
+        if (!isRegistered) return; 
     }
 
+    // 4. سؤال الأمان (فقط في الرئيسية)
     const subjectsGrid = $('subjects-grid'); 
     if (subjectsGrid) {
         if (!checkAccessPermission()) {
@@ -258,24 +340,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
+    // 5. تسجيل الدخول في الخلفية
     const loginResult = await loginWithFingerprint(STUDENT_ID, FINGERPRINT_ID);
     if (loginResult.status === 'fingerprint_blocked') {
         hideContent('الجهاز محظور', loginResult.message);
         return;
     }
 
+    // 6. تحميل المحتوى
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
     const dashboardContent = $('dashboard-content'); 
 
     try {
-        if (subjectsGrid) initIndexPage();
-        else if (quizBody) await initQuizPage(subjectKey);
-        else if (summaryFilesContent) await initSummaryPage(subjectKey);
-        else if (dashboardContent) initDashboardPage(); 
-    } catch (err) { console.error(err); }
+        if (subjectsGrid) {
+            initIndexPage();
+        } else if (quizBody) {
+            await initQuizPage(subjectKey);
+        } else if (summaryFilesContent) {
+            await initSummaryPage(subjectKey);
+        } else if (dashboardContent) { 
+            initDashboardPage(); 
+        }
+    } catch (err) {
+        console.error('Initialization error', err);
+    }
 });
+
 
 /* -------------------------------------------------------------------------- */
 /* 6. إدارة الصفحات (Page Controllers)                                       */
@@ -291,10 +383,12 @@ function initThemeToggle() {
     });
 }
 
+// --- الصفحة الرئيسية ---
 async function initIndexPage() {
     const grid = $('subjects-grid');
     if (!grid) return;
     grid.innerHTML = '';
+    
     const logoEl = document.querySelector('.main-header .logo');
     if(logoEl) logoEl.innerHTML = LOGO_SVG;
     
@@ -303,7 +397,14 @@ async function initIndexPage() {
         const card = document.createElement('div');
         card.className = 'subject-card';
         card.dataset.subjectKey = key; 
-        card.innerHTML = `<div class="card-icon">${s.icon || '📘'}</div><h3 class="card-title">${s.title}</h3><div class="card-actions"><a href="quiz.html?subject=${encodeURIComponent(key)}" class="card-btn btn-quiz disabled" aria-disabled="true">🧠 اختبار (قريباً)</a><a href="summary.html?subject=${encodeURIComponent(key)}" class="card-btn btn-summary disabled" aria-disabled="true">📖 ملخص (قريباً)</a></div>`;
+        card.innerHTML = `
+            <div class="card-icon">${s.icon || '📘'}</div> 
+            <h3 class="card-title">${s.title}</h3>
+            <div class="card-actions">
+                <a href="quiz.html?subject=${encodeURIComponent(key)}" class="card-btn btn-quiz disabled" aria-disabled="true">🧠 اختبار (قريباً)</a>
+                <a href="summary.html?subject=${encodeURIComponent(key)}" class="card-btn btn-summary disabled" aria-disabled="true">📖 ملخص (قريباً)</a>
+            </div>
+        `;
         grid.appendChild(card);
     }
     const allCards = grid.querySelectorAll('.subject-card');
@@ -312,15 +413,15 @@ async function initIndexPage() {
     const searchBar = $('search-bar');
     if (searchBar) {
         searchBar.addEventListener('input', (e) => {
-            const term = e.target.value.trim().toLowerCase();
-            let count = 0;
+            const searchTerm = e.target.value.trim().toLowerCase();
+            let visibleCount = 0;
             allCards.forEach(card => {
                 const title = SUBJECTS[card.dataset.subjectKey].title.toLowerCase();
-                const vis = title.normalize("NFKD").replace(/[\u064B-\u0652]/g, "").includes(term.normalize("NFKD").replace(/[\u064B-\u0652]/g, ""));
+                const vis = title.normalize("NFKD").replace(/[\u064B-\u0652]/g, "").includes(searchTerm.normalize("NFKD").replace(/[\u064B-\u0652]/g, ""));
                 card.style.display = vis ? 'flex' : 'none';
-                if(vis) count++;
+                if(vis) visibleCount++;
             });
-            $('no-results-message').style.display = count === 0 ? 'block' : 'none';
+            $('no-results-message').style.display = (visibleCount === 0) ? 'block' : 'none';
         });
     }
 }
@@ -329,16 +430,25 @@ async function loadAndEnableCard(key, cardElement) {
     try {
         const data = await loadSubjectData(key); 
         if (data && data.quizData && data.quizData.questions && data.quizData.questions.length > 0) {
-            const btn = cardElement.querySelector('.btn-quiz');
-            if(btn) { btn.classList.remove('disabled'); btn.innerText = '🧠 اختبار'; btn.setAttribute('aria-disabled', 'false'); }
+            const quizBtn = cardElement.querySelector('.btn-quiz');
+            if(quizBtn) {
+                quizBtn.classList.remove('disabled');
+                quizBtn.innerText = '🧠 اختبار';
+                quizBtn.setAttribute('aria-disabled', 'false');
+            }
         }
         if (data && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0 || data.summaryData.content?.length > 100)) { 
-            const btn = cardElement.querySelector('.btn-summary');
-            if(btn) { btn.classList.remove('disabled'); btn.innerText = '📖 ملخص'; btn.setAttribute('aria-disabled', 'false'); }
+            const summaryBtn = cardElement.querySelector('.btn-summary');
+            if(summaryBtn) {
+                summaryBtn.classList.remove('disabled');
+                summaryBtn.innerText = '📖 ملخص';
+                summaryBtn.setAttribute('aria-disabled', 'false');
+            }
         }
     } catch (e) {}
 }
 
+// --- الملخص ---
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     const tabsContainer = document.querySelector('.summary-tabs');
@@ -361,6 +471,9 @@ async function initSummaryPage(subjectKey) {
         const hasFiles = data.summaryData.files?.length > 0;
         const hasImages = data.summaryData.images?.length > 0;
         const hasOldContent = data.summaryData.content?.length > 100;
+        
+        let foundFilesCount = 0;
+        let foundImagesCount = 0;
 
         if (hasFiles || hasImages) {
             tabsContainer.style.display = 'flex';
@@ -369,6 +482,7 @@ async function initSummaryPage(subjectKey) {
                 let filesHtml = '<ul class="file-download-list">';
                 const checks = data.summaryData.files.map(async f => {
                     if(await fileExists(f.path)) {
+                        foundFilesCount++; 
                         let icon = f.type==='pdf'?'📕':f.type==='doc'?'📘':'📄';
                         return `<li class="file-download-item"><a href="${f.path}" target="_blank" class="file-download-link"><span class="file-download-icon">${icon}</span><span class="file-download-name">${f.name}</span></a></li>`;
                     } return '';
@@ -381,6 +495,7 @@ async function initSummaryPage(subjectKey) {
                 let imgHtml = '<div class="gallery-grid">';
                 const checks = data.summaryData.images.map(async i => {
                     if(await fileExists(i.path)) {
+                        foundImagesCount++;
                         return `<div class="gallery-item"><img src="${i.path}" alt="صورة"><p>${i.caption||'صورة'}</p></div>`;
                     } return '';
                 });
@@ -407,8 +522,8 @@ async function initSummaryPage(subjectKey) {
                     filesContentEl.querySelectorAll('img').forEach(img => img.onclick = () => { modal.classList.add('show'); mImg.src = img.src; });
                 }, 500);
             }
-            if (filesContentEl.innerHTML.includes('li')) fTab.click();
-            else if (imagesContentEl.innerHTML.includes('img')) iTab.click();
+            if (foundFilesCount > 0) fTab.click(); 
+            else if (foundImagesCount > 0) iTab.click();
             else fTab.click();
 
         } else if (hasOldContent) {
@@ -425,24 +540,30 @@ async function initSummaryPage(subjectKey) {
     } catch (e) { console.error(e); titleEl.innerText = 'خطأ في التحميل'; }
 }
 
+// --- لوحة التقدم ---
 async function initDashboardPage() {
     const container = $('dashboard-content');
     if (!container || !STUDENT_ID) return;
     container.innerHTML = '<p class="dashboard-empty-state">جاري التحميل...</p>';
+
     try {
         const [stats, results] = await Promise.all([
             fetch(`${API_URL}/students/${STUDENT_ID}/stats`).then(r=>r.json()),
             fetch(`${API_URL}/students/${STUDENT_ID}/results`).then(r=>r.json())
         ]);
+
         if (stats.error) throw new Error('فشل التحميل');
+
         let html = `
             <div class="dashboard-summary-grid">
                 <div class="summary-box"><p class="summary-box-label">الاختبارات</p><p class="summary-box-value">${stats.totalQuizzes}</p></div>
                 <div class="summary-box"><p class="summary-box-label">المتوسط</p><p class="summary-box-value ${stats.averageScore>=50?'correct':'incorrect'}">${stats.averageScore}</p></div>
                 <div class="summary-box"><p class="summary-box-label">الأفضل</p><p class="summary-box-value level-excellent">${stats.bestScore}</p></div>
             </div><div class="results-divider"></div>`;
+
         const byQuiz = {};
         results.forEach(r => { if(!byQuiz[r.quizName]) byQuiz[r.quizName]=[]; byQuiz[r.quizName].push(r); });
+
         for (const q in byQuiz) {
             html += `<div class="subject-history-card"><h3>${q}</h3><ul class="history-list">`;
             byQuiz[q].forEach(r => {
@@ -455,6 +576,7 @@ async function initDashboardPage() {
     } catch (e) { container.innerHTML = '<p class="dashboard-empty-state" style="color:red">فشل التحميل.</p>'; }
 }
 
+// --- الاختبار ---
 async function initQuizPage(subjectKey) {
     if(!subjectKey) return;
     try {
