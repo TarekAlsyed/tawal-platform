@@ -46,7 +46,7 @@
     {
       "type": "tf",
       "question": "وجود عوائق طبيعية مثل الجبال قد يسبب 'انحرافًا إيجابيًا' في الطريق.",
-      "answer": true,
+      "answer": false,
       "difficulty": "medium",
       "topic": "مؤشر الانعطاف"
     },
