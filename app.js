@@ -1,9 +1,8 @@
 /*
- * app.js - Tawal Academy (v10.7.0 - DB Migration Fix)
- * - (جديد) إضافة دالة verifyOrRegisterStudent للتحقق من أن الـ ID المحلي
- * موجود في قاعدة البيانات الجديدة، وإلا يتم إجباره على إعادة التسجيل.
- * - (تصحيح) إصلاح خطأ "backGtn is not defined" في initSummaryPage.
- * - (تعديل) نقل checkAccessPermission ليعمل فقط في الصفحة الرئيسية.
+ * app.js - Tawal Academy (v10.9.0 - Final Integration)
+ * - نظام البصمة (Fingerprint) لمنع الأجهزة المحظورة.
+ * - نظام التحقق من الحظر (Account Blocking).
+ * - إصلاحات وعرض الملفات والصور في الملخص.
  */
 
 /* =======================
@@ -11,6 +10,7 @@
    ======================= */
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 let STUDENT_ID = localStorage.getItem('tawal_studentId_v3');
+let FINGERPRINT_ID = null; // لتخزين بصمة الجهاز
 
 /* =======================
    إعدادات ومفاتيح التخزين
@@ -197,20 +197,16 @@ function checkAccessPermission(pageType = 'المحتوى') {
     }
 }
 
-
 /* =======================
-   (نظام التسجيل - v10.4.0)
+   (نظام التسجيل - معدل بالبصمة)
    ======================= */
-async function registerStudent() {
+async function registerStudent(fingerprint) {
     const name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء إدخال اسمك (لربط نتائجك به):');
     const email = prompt('الرجاء إدخال بريدك الإلكتروني:');
 
     if (!name || !email) {
         alert('يجب إدخال الاسم والبريد الإلكتروني للمتابعة.');
-        const quizContainer = document.querySelector('.quiz-container');
-        const mainContainer = document.querySelector('.main-container');
-        if (quizContainer) quizContainer.innerHTML = `<div class="quiz-header"><h2>الوصول مرفوض</h2></div>`;
-        if (mainContainer) mainContainer.innerHTML = `<header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>`;
+        hideContent('الوصول مرفوض', 'يجب إدخال الاسم والإيميل.');
         return false;
     }
 
@@ -218,12 +214,18 @@ async function registerStudent() {
         const response = await fetch(`${API_URL}/students/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email })
+            body: JSON.stringify({ name, email, fingerprint: fingerprint })
         });
+        
         const data = await response.json();
 
+        if (response.status === 403) {
+            alert('هذا الجهاز محظور من إنشاء حسابات جديدة.');
+            hideContent('الجهاز محظور', data.error);
+            return false;
+        }
+
         if (data.id) {
-            // نجح التسجيل
             STUDENT_ID = data.id;
             localStorage.setItem('tawal_studentId_v3', data.id);
             localStorage.setItem('tawal_studentName_v3', data.name);
@@ -231,7 +233,7 @@ async function registerStudent() {
             return true;
         } else if (data.error && data.error.includes('البريد الإلكتروني مسجل بالفعل')) {
             alert(`أهلاً بعودتك يا ${name}! يبدو أنك مسجل بالفعل.`);
-            return await registerStudent(); 
+            return await registerStudent(fingerprint);
         } else {
             alert('حدث خطأ أثناء التسجيل: ' + data.error);
             return false;
@@ -243,80 +245,137 @@ async function registerStudent() {
     }
 }
 
-/* * (*** جديد v10.7.0 ***)
- * دالة التحقق من هوية الطالب
- * تتحقق إذا كان الـ ID المحلي صالحاً في قاعدة البيانات الجديدة
- */
-async function verifyOrRegisterStudent() {
-    let localId = localStorage.getItem('tawal_studentId_v3');
-    
-    if (localId) {
-        // (1) الطالب لديه ID محلي، لنتحقق منه
-        try {
-            const response = await fetch(`${API_URL}/students/${localId}`);
-            if (response.ok) {
-                // (2) الـ ID صالح وموجود في قاعدة البيانات
-                STUDENT_ID = localId;
-                return true; // المستخدم صالح
-            } else {
-                // (3) الـ ID موجود محلياً ولكنه غير موجود في قاعدة البيانات (طالب قديم)
-                throw new Error('Student not found in DB');
+/* =======================
+   دوال التحقق والدخول (Fingerprint + Block Check)
+   ======================= */
+
+async function verifyStudent(localId) {
+    if (!localId) {
+        return { status: 'new_user' };
+    }
+    try {
+        const response = await fetch(`${API_URL}/students/${localId}`);
+        if (response.ok) {
+            const student = await response.json();
+            if (student.isblocked) {
+                return { status: 'account_blocked' };
             }
-        } catch (err) {
-            // (4) حدث خطأ (مثل 404 أو فشل الشبكة)
-            console.warn('Invalid local studentId. Forcing re-registration.');
-            // حذف البيانات القديمة غير الصالحة
-            localStorage.removeItem('tawal_studentId_v3');
-            localStorage.removeItem('tawal_studentName_v3');
-            // إجباره على التسجيل كطالب جديد
-            return await registerStudent();
+            STUDENT_ID = localId;
+            return { status: 'valid' };
+        } else {
+            return { status: 'id_mismatch' };
         }
+    } catch (err) {
+        console.error('فشل التحقق من الطالب:', err);
+        return { status: 'network_error', error: err };
+    }
+}
+
+async function getFingerprint() {
+    try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        return result.visitorId;
+    } catch (err) {
+        console.error('فشل جلب البصمة:', err);
+        return null;
+    }
+}
+
+async function loginWithFingerprint(studentId, fingerprint) {
+    if (!studentId || !fingerprint) return { status: 'error', message: 'بيانات ناقصة' };
+    try {
+        const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId, fingerprint })
+        });
+        const data = await response.json();
+        if (response.status === 403) {
+            return { status: 'fingerprint_blocked', message: data.error };
+        }
+        if (response.ok) {
+            return { status: 'success', logId: data.logId };
+        }
+        return { status: 'error', message: data.error };
+    } catch (err) {
+        console.error('فشل تسجيل الدخول:', err);
+        return { status: 'network_error', message: err.message };
+    }
+}
+
+function hideContent(title, message) {
+    const quizContainer = document.querySelector('.quiz-container');
+    const mainContainer = document.querySelector('.main-container');
+
+    if (quizContainer) {
+        quizContainer.innerHTML = `
+            <div class="quiz-header"><h2>${title}</h2></div>
+            <div class="quiz-body">
+                <p class="placeholder" style="color: var(--color-incorrect);">${message}</p>
+            </div>`;
+    } else if (mainContainer) {
+        mainContainer.innerHTML = `
+            <header class="main-header"><h1 class="logo">${title}</h1></header>
+            <main>
+                <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">${message}</p>
+            </main>`;
     } else {
-        // (5) الطالب ليس لديه ID (طالب جديد تماماً)
-        return await registerStudent();
+        document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">${title}</h1>`;
     }
 }
 
 
 /* =======================
-   (*** تعديل جذري v10.7.0: منطق الدخول ***)
+   (نقطة الانطلاق الرئيسية: Main Entry Point)
    ======================= */
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
     
-    // (*** الخطوة 1: التحقق من هوية الطالب أو تسجيله ***)
-    const isUserValid = await verifyOrRegisterStudent();
-    if (!isUserValid) {
-        // إذا فشل التسجيل أو ألغاه المستخدم، أوقف تحميل الصفحة
-        return; 
+    // 1. جلب البصمة
+    FINGERPRINT_ID = await getFingerprint();
+    if (!FINGERPRINT_ID) {
+        console.warn('فشل تحميل أداة البصمة. الحظر بالبصمة لن يعمل بكفاءة.');
+    }
+
+    // 2. التحقق من هوية الطالب
+    const localId = localStorage.getItem('tawal_studentId_v3');
+    const verification = await verifyStudent(localId);
+
+    if (verification.status === 'account_blocked') {
+        hideContent('الحساب محظور', 'تم إيقاف هذا الحساب. الرجاء التواصل مع الإدارة.');
+        return;
     }
     
-    // (*** الخطوة 2: إذا كان المستخدم صالحاً، تحقق من سؤال الصلاة (فقط في الرئيسية) ***)
+    if (verification.status === 'id_mismatch' || verification.status === 'new_user') {
+        console.warn('ID غير صالح أو مستخدم جديد. بدء التسجيل...');
+        localStorage.removeItem('tawal_studentId_v3');
+        localStorage.removeItem('tawal_studentName_v3');
+        
+        const isRegistered = await registerStudent(FINGERPRINT_ID);
+        if (!isRegistered) {
+            return; 
+        }
+    }
+
+    // 3. التحقق من سؤال الصلاة (في الرئيسية فقط)
     const subjectsGrid = $('subjects-grid'); 
     if (subjectsGrid) {
-        // نحن في index.html، اسأل السؤال
         if (!checkAccessPermission('المنصة')) {
-            const mainContainer = document.querySelector('.main-container');
-            if (mainContainer) {
-                mainContainer.innerHTML = `
-                    <header class="main-header"><h1 class="logo">الوصول مرفوض</h1></header>
-                    <main>
-                        <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">الإجابة غير صحيحة. لا يمكن الوصول للمنصة.</p>
-                    </main>`;
-            }
-            return; // إيقاف تنفيذ أي كود آخر في الصفحة الرئيسية
+            hideContent('الوصول مرفوض', 'الإجابة غير صحيحة. لا يمكن الوصول للمنصة.');
+            return; 
         }
     }
     
-    // (*** الخطوة 3: سجل دخوله في الخلفية (الآن نضمن أن STUDENT_ID صالح) ***)
-    fetch(`${API_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: STUDENT_ID })
-    });
-
+    // 4. تسجيل الدخول بالبصمة
+    const loginResult = await loginWithFingerprint(STUDENT_ID, FINGERPRINT_ID);
     
-    // (*** الخطوة 4: قم بتحميل محتوى الصفحة كالمعتاد ***)
+    if (loginResult.status === 'fingerprint_blocked') {
+        hideContent('الجهاز محظور', loginResult.message);
+        return;
+    }
+
+    // 5. تحميل محتوى الصفحة
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
@@ -336,6 +395,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Initialization error', err);
     }
 });
+
 
 /* =======================
    Theme toggle بسيطة
@@ -458,10 +518,9 @@ async function loadAndEnableCard(key, cardElement) {
     }
 }
 
-/*
- * (*** جديد v10.5.0 ***)
- * دالة مساعدة للتحقق من وجود ملف على الخادم
- */
+/* =======================
+   دالة فحص وجود الملفات (مصححة)
+   ======================= */
 async function fileExists(url) {
     try {
         const response = await fetch(url, { method: 'HEAD' });
@@ -472,9 +531,9 @@ async function fileExists(url) {
     }
 }
 
-/* * (*** معدل v10.5.0 ***)
- * تم تعديل هذه الدالة بالكامل لتستخدم fileExists
- */
+/* =======================
+   initSummaryPage (مصححة - backBtn)
+   ======================= */
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     
@@ -580,6 +639,7 @@ async function initSummaryPage(subjectKey) {
                 }
 
                 if (filesContentEl) filesContentEl.appendChild(backBtn.cloneNode(true));
+                // (*** تصحيح الخطأ المطبعي هنا ***)
                 if (imagesContentEl) imagesContentEl.appendChild(backBtn.cloneNode(true));
             
                 if (filesTab) {
@@ -793,9 +853,6 @@ async function initQuizPage(subjectKey) {
    المحرك الرئيسي للاختبار (v9.1.2)
    ======================= */
 function runQuizEngine(quizObj, subjectKey) {
-    // ... (باقي كود الاختبار لم يتغير) ...
-    // ... (rest of the quiz engine code remains unchanged) ...
-    
     // عناصر DOM
     const quizTitleEl = $('quiz-title');
     const questionTextEl = $('question-text');
