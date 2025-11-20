@@ -1,10 +1,10 @@
 /*
  * =================================================================================
  * APP.JS - Tawal Academy Client Logic
- * Version: 13.1.0 (Final Fixed Full Version)
+ * Version: 14.0.0 (Final Fixed Full Version - Multi-Level Support)
  * =================================================================================
  * * هذا الملف يحتوي على المنطق الكامل للواجهة الأمامية.
- * * تم إصلاح خطأ timeTakenInSeconds.
+ * * تم إصلاح مسارات الملفات لدعم (quiz_1, quiz_2, quiz_3).
  * * تم دمج كافة الميزات (المستويات، الحظر، البصمة، التسجيل الذكي).
  * =================================================================================
  */
@@ -16,7 +16,7 @@
 // رابط الخادم (Backend)
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-// مفاتيح التخزين (v4 لإجبار التحديث)
+// مفاتيح التخزين
 const STORAGE_KEY_ID = 'tawal_studentId_v4'; 
 const STORAGE_KEY_NAME = 'tawal_studentName_v4';
 
@@ -25,21 +25,18 @@ let STUDENT_ID = localStorage.getItem(STORAGE_KEY_ID);
 let FINGERPRINT_ID = null;
 
 // إعدادات أخرى
-const PROGRESS_KEY = 'tawalAcademyProgress_v1';
 const DEFAULT_SUBJECT = 'gis_networks';
 
-// متغيرات الاختبار العامة (Global Quiz Variables)
-// - استخدام متغيرات عامة لحل مشاكل النطاق (Scope)
+// متغيرات الاختبار العامة
 let currentQuestions = [];
 let currentQuestionIndex = 0;
 let currentScore = 0;
 let currentCorrectCount = 0;
 let incorrectQuestions = [];
-let quizStartTime = 0;      // وقت بدء الاختبار ككل
-let questionStartTime = 0;  // وقت بدء السؤال الحالي
+let questionStartTime = 0;
 let currentQuizTitle = "";
 
-// إعدادات المستويات (Level Config)
+// إعدادات المستويات (Level Config) - هذه الأسماء تطابق نهايات ملفاتك
 const LEVEL_CONFIG = [
     { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 0 },
     { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 },
@@ -81,7 +78,7 @@ const SUBJECTS = {
         icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.09 13.6-2.2-2.2 2.2-2.2"></path><path d="m10.39 18.4 2.2-2.2-2.2-2.2"></path><path d="M3 22v-3.5a2.5 2.5 0 0 1 2.5-2.5h13A2.5 2.5 0 0 1 21 18.5V22"></path><path d="M2 13.3V3a1 1 0 0 1 1-1h11l5 5v10.3"></path><path d="M14 2v6h6"></path></svg>'
     },
     surveying_texts: {
-        title: "نصوص جغرافية فى المساحة والحرائط",
+        title: "نصوص جغرافية فى المساحة والخرائط",
         icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 16 4-4-4-4"></path><path d="m8 16 4-4-4-4"></path><path d="M2 12h20"></path></svg>'
     },
     arid_lands: {
@@ -105,53 +102,31 @@ function getSubjectKey() {
     }
 }
 
-// التحقق من صحة الاسم (مرن: 3 حروف فأكثر)
 function isValidName(name) {
     const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/;
     return nameRegex.test(name.trim());
 }
 
-// التحقق من الإيميل
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email.trim());
 }
 
-// التحقق من وجود الملفات
 async function fileExists(url) {
     try {
         const response = await fetch(url, { method: 'HEAD' });
         return response.ok;
-    } catch (e) {
-        // تجاهل الخطأ (الملف غير موجود)
-        return false;
-    }
+    } catch (e) { return false; }
 }
 
-// إخفاء المحتوى عند الحظر
 function hideContent(title, message) {
     const quizContainer = document.querySelector('.quiz-container');
     const mainContainer = document.querySelector('.main-container');
-
-    const htmlContent = `
-        <div class="quiz-header"><h2>${title}</h2></div>
-        <div class="quiz-body">
-            <p class="placeholder" style="color: var(--color-incorrect);">${message}</p>
-        </div>`;
-
-    const mainHtml = `
-        <header class="main-header"><h1 class="logo">${title}</h1></header>
-        <main>
-            <p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">${message}</p>
-        </main>`;
-
-    if (quizContainer) {
-        quizContainer.innerHTML = htmlContent;
-    } else if (mainContainer) {
-        mainContainer.innerHTML = mainHtml;
-    } else {
-        document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">${title}</h1><p style="text-align: center;">${message}</p>`;
-    }
+    const htmlContent = `<div class="quiz-header"><h2>${title}</h2></div><div class="quiz-body"><p class="placeholder" style="color: var(--color-incorrect);">${message}</p></div>`;
+    const mainHtml = `<header class="main-header"><h1 class="logo">${title}</h1></header><main><p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">${message}</p></main>`;
+    if (quizContainer) quizContainer.innerHTML = htmlContent;
+    else if (mainContainer) mainContainer.innerHTML = mainHtml;
+    else document.body.innerHTML = `<h1 style="color: red; text-align: center; margin-top: 50px;">${title}</h1><p style="text-align: center;">${message}</p>`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -163,56 +138,38 @@ function logActivity(activityType, subjectName = null) {
     fetch(`${API_URL}/log-activity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            studentId: STUDENT_ID,
-            activityType: activityType,
-            subjectName: subjectName
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        // نجاح التسجيل (صامت)
-    })
-    .catch(err => console.error('فشل تسجيل النشاط:', err));
+        body: JSON.stringify({ studentId: STUDENT_ID, activityType, subjectName })
+    }).catch(err => console.error('Log Error:', err));
 }
 
 function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     if (!STUDENT_ID) return;
-    
-    // تنظيف الاسم
-    const cleanQuizName = quizName.trim();
-    
     fetch(`${API_URL}/quiz-results`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            studentId: STUDENT_ID,
-            quizName: cleanQuizName,
-            score: score,
-            totalQuestions: totalQuestions,
-            correctAnswers: correctAnswers
-        })
+        body: JSON.stringify({ studentId: STUDENT_ID, quizName: quizName.trim(), score, totalQuestions, correctAnswers })
     })
-    .then(res => res.json())
-    .then(data => console.log('✓ تم حفظ النتيجة:', cleanQuizName))
-    .catch(err => console.error('خطأ حفظ النتيجة:', err));
+    .then(() => console.log('✓ Result Saved'))
+    .catch(err => console.error('Save Error:', err));
 }
 
+// دالة الفحص الذكية: تتحقق من وجود المستوى الأول والملخص لتمكين الأزرار
 function loadSubjectData(subjectKey) {
     return new Promise((resolve, reject) => {
         if (!subjectKey || !SUBJECTS[subjectKey]) {
             reject(new Error('Invalid subject'));
             return;
         }
-        const qUrl = `data_${subjectKey}/data_${subjectKey}_quiz.json?v=${Date.now()}`;
+        // نبحث تحديداً عن المستوى الأول لاختبار الوجود
+        const qUrl = `data_${subjectKey}/data_${subjectKey}_quiz_1.json?v=${Date.now()}`;
         const sUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
 
         Promise.all([
-            fetch(qUrl).then(r => r.ok ? r.json() : {}).catch(() => ({})),
-            fetch(sUrl).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+            fetch(qUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch(sUrl).then(r => r.ok ? r.json() : null).catch(() => null)
         ])
         .then(results => {
-            resolve({ quizData: results[0], summaryData: results[1] });
+            resolve({ hasQuiz: !!results[0], summaryData: results[1] || {} });
         })
         .catch(reject);
     });
@@ -227,25 +184,19 @@ async function getFingerprint() {
         const fp = await FingerprintJS.load();
         const result = await fp.get();
         return result.visitorId;
-    } catch (err) {
-        console.error('فشل جلب البصمة:', err);
-        return null;
-    }
+    } catch (err) { return null; }
 }
 
-// التسجيل الذكي
 async function registerStudent(fingerprint) {
-    let name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء كتابة اسمك:');
-    
+    let name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء كتابة اسمك ثلاثي:');
     while (!name || !isValidName(name)) {
         if (name === null) return false; 
-        name = prompt('الرجاء كتابة اسمك (حروف فقط):');
+        name = prompt('الرجاء كتابة اسمك بشكل صحيح (حروف فقط، 3 أحرف فأكثر):');
     }
-
     let email = prompt('الرجاء كتابة البريد الإلكتروني:');
     while (!email || !isValidEmail(email)) {
         if (email === null) return false; 
-        email = prompt('الرجاء كتابة البريد الإلكتروني بشكل صحيح:');
+        email = prompt('الرجاء كتابة بريد إلكتروني صالح:');
     }
 
     try {
@@ -254,36 +205,26 @@ async function registerStudent(fingerprint) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, fingerprint })
         });
-        
         const data = await response.json();
 
         if (response.status === 403) {
             hideContent('الجهاز محظور', data.error);
             return false;
         }
-
         if (data.id) {
             STUDENT_ID = data.id;
             localStorage.setItem(STORAGE_KEY_ID, data.id);
             localStorage.setItem(STORAGE_KEY_NAME, data.name);
-            
-            if (data.message && data.message.includes('موجود')) {
-                alert(`أهلاً بعودتك يا ${data.name}!`);
-            } else {
-                alert(`أهلاً بك يا ${data.name}! تم التسجيل بنجاح.`);
-            }
+            alert(`أهلاً بك يا ${data.name}! تم التسجيل بنجاح.`);
             return true;
-        } 
-        
-        else if (data.error && data.error.includes('البريد الإلكتروني مسجل بالفعل')) {
-            alert('⚠️ هذا البريد مسجل بالفعل. حاول مرة أخرى.');
+        } else if (data.error && data.error.includes('موجود')) {
+            alert('⚠️ هذا البريد مسجل بالفعل.');
             return false;
         } else {
             alert('حدث خطأ: ' + data.error);
             return false;
         }
     } catch (err) {
-        console.error(err);
         alert('فشل الاتصال بالخادم.');
         return false;
     }
@@ -298,12 +239,8 @@ async function verifyStudent(localId) {
             if (student.isblocked) return { status: 'account_blocked' };
             STUDENT_ID = localId;
             return { status: 'valid' };
-        } else {
-            return { status: 'id_mismatch' };
-        }
-    } catch (err) {
-        return { status: 'network_error', error: err };
-    }
+        } else { return { status: 'id_mismatch' }; }
+    } catch (err) { return { status: 'network_error' }; }
 }
 
 async function loginWithFingerprint(studentId, fingerprint) {
@@ -315,33 +252,17 @@ async function loginWithFingerprint(studentId, fingerprint) {
             body: JSON.stringify({ studentId, fingerprint })
         });
         const data = await response.json();
-        
-        if (response.status === 403) {
-            return { status: 'fingerprint_blocked', message: data.error };
-        }
-        if (response.ok) {
-            return { status: 'success', logId: data.logId };
-        }
-        return { status: 'error', message: data.error };
-    } catch (e) {
-        return { status: 'error' };
-    }
-}
-
-function checkAccessPermission() {
-    const ans = prompt("هل صليت على النبي اليوم؟\n\nمفتاح الدخول: صلى الله عليه وسلم", "");
-    if (!ans) return false;
-    const norm = ans.replace(/[\u064B-\u0652]/g, '').replace(/ـ/g, '').replace(/[ى]/g, 'ي').replace(/صلِ/g, 'صل').trim();
-    return ["صلي", "الله", "عليه", "وسلم", "صل"].some(k => norm.includes(k));
+        if (response.status === 403) return { status: 'fingerprint_blocked', message: data.error };
+        return response.ok ? { status: 'success' } : { status: 'error' };
+    } catch (e) { return { status: 'error' }; }
 }
 
 /* -------------------------------------------------------------------------- */
-/* 5. نقطة الانطلاق الرئيسية (Main Execution)                                */
+/* 6. نقطة الانطلاق الرئيسية (Main Execution)                                */
 /* -------------------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
-    
     FINGERPRINT_ID = await getFingerprint();
 
     const localId = localStorage.getItem(STORAGE_KEY_ID);
@@ -351,52 +272,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         hideContent('الحساب محظور', 'تم إيقاف هذا الحساب. الرجاء التواصل مع الإدارة.');
         return;
     }
-    
     if (verification.status === 'id_mismatch' || verification.status === 'new_user') {
         localStorage.removeItem(STORAGE_KEY_ID);
-        localStorage.removeItem(STORAGE_KEY_NAME);
-        
         const isRegistered = await registerStudent(FINGERPRINT_ID);
         if (!isRegistered) return; 
     }
 
-    const subjectsGrid = $('subjects-grid'); 
-    if (subjectsGrid) {
-        if (!checkAccessPermission()) {
-            hideContent('الوصول مرفوض', 'الإجابة غير صحيحة.');
-            return; 
-        }
-    }
-    
     const loginResult = await loginWithFingerprint(STUDENT_ID, FINGERPRINT_ID);
     if (loginResult.status === 'fingerprint_blocked') {
         hideContent('الجهاز محظور', loginResult.message);
         return;
     }
 
+    // توجيه المستخدم للصفحة المناسبة
     const subjectKey = getSubjectKey();
-    const quizBody = $('quiz-body');
-    const summaryFilesContent = $('summary-content-files'); 
-    const dashboardContent = $('dashboard-content'); 
-
-    try {
-        if (subjectsGrid) {
-            initIndexPage();
-        } else if (quizBody) {
-            await initQuizPage(subjectKey);
-        } else if (summaryFilesContent) {
-            await initSummaryPage(subjectKey);
-        } else if (dashboardContent) { 
-            initDashboardPage(); 
-        }
-    } catch (err) {
-        console.error('Initialization error', err);
-    }
+    if ($('subjects-grid')) initIndexPage();
+    else if ($('quiz-body')) initQuizPage(subjectKey);
+    else if ($('summary-content-files')) initSummaryPage(subjectKey);
+    else if ($('dashboard-content')) initDashboardPage(); 
 });
 
-
 /* -------------------------------------------------------------------------- */
-/* 6. إدارة الصفحات (Page Controllers)                                       */
+/* 7. إدارة الصفحات (Page Controllers)                                       */
 /* -------------------------------------------------------------------------- */
 
 function initThemeToggle() {
@@ -427,8 +324,8 @@ async function initIndexPage() {
             <div class="card-icon">${s.icon || '📘'}</div> 
             <h3 class="card-title">${s.title}</h3>
             <div class="card-actions">
-                <a href="quiz.html?subject=${encodeURIComponent(key)}" class="card-btn btn-quiz disabled" aria-disabled="true">🧠 اختبار (قريباً)</a>
-                <a href="summary.html?subject=${encodeURIComponent(key)}" class="card-btn btn-summary disabled" aria-disabled="true">📖 ملخص (قريباً)</a>
+                <a href="quiz.html?subject=${encodeURIComponent(key)}" class="card-btn btn-quiz disabled" aria-disabled="true">🧠 اختبار</a>
+                <a href="summary.html?subject=${encodeURIComponent(key)}" class="card-btn btn-summary disabled" aria-disabled="true">📖 ملخص</a>
             </div>
         `;
         grid.appendChild(card);
@@ -437,14 +334,15 @@ async function initIndexPage() {
     const allCards = grid.querySelectorAll('.subject-card');
     for (const card of allCards) { await loadAndEnableCard(card.dataset.subjectKey, card); }
 
+    // تفعيل البحث
     const searchBar = $('search-bar');
     if (searchBar) {
         searchBar.addEventListener('input', (e) => {
-            const searchTerm = e.target.value.trim().toLowerCase();
+            const term = e.target.value.trim().toLowerCase();
             let visibleCount = 0;
             allCards.forEach(card => {
                 const title = SUBJECTS[card.dataset.subjectKey].title.toLowerCase();
-                const vis = title.normalize("NFKD").replace(/[\u064B-\u0652]/g, "").includes(searchTerm.normalize("NFKD").replace(/[\u064B-\u0652]/g, ""));
+                const vis = title.includes(term);
                 card.style.display = vis ? 'flex' : 'none';
                 if(vis) visibleCount++;
             });
@@ -456,225 +354,152 @@ async function initIndexPage() {
 async function loadAndEnableCard(key, cardElement) {
     try {
         const data = await loadSubjectData(key); 
-        if (data.quizData?.levels || data.quizData?.questions) {
+        if (data.hasQuiz) {
             const quizBtn = cardElement.querySelector('.btn-quiz');
-            if(quizBtn) {
-                quizBtn.classList.remove('disabled');
-                quizBtn.innerText = '🧠 اختبار';
-                quizBtn.setAttribute('aria-disabled', 'false');
-            }
+            if(quizBtn) quizBtn.classList.remove('disabled');
         }
-        if (data && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0 || data.summaryData.content)) { 
+        if (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0) { 
             const summaryBtn = cardElement.querySelector('.btn-summary');
-            if(summaryBtn) {
-                summaryBtn.classList.remove('disabled');
-                summaryBtn.innerText = '📖 ملخص';
-                summaryBtn.setAttribute('aria-disabled', 'false');
-            }
+            if(summaryBtn) summaryBtn.classList.remove('disabled');
         }
     } catch (e) {}
 }
 
-// الملخص
+// صفحة الملخص
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
-    const tabsContainer = document.querySelector('.summary-tabs');
     const filesContentEl = $('summary-content-files');
     const imagesContentEl = $('summary-content-images');
+    const fTab = $('btn-summary-files');
+    const iTab = $('btn-summary-images');
 
-    if (!subjectKey) { titleEl.innerText = 'خطأ'; return; }
+    if (!SUBJECTS[subjectKey]) { titleEl.innerText = 'خطأ'; return; }
     
     try {
-        const data = await loadSubjectData(subjectKey); 
-        const subjectTitle = data.summaryData.title || SUBJECTS[subjectKey].title;
-        titleEl.innerText = subjectTitle;
+        // هنا نستخدم الرابط الصحيح للملخص _summary.json
+        const res = await fetch(`data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`);
+        if (!res.ok) throw new Error('No summary');
+        const data = await res.json();
+
+        titleEl.innerText = data.title || SUBJECTS[subjectKey].title;
         
-        const backBtn = document.createElement('a');
-        backBtn.href = 'index.html';
-        backBtn.className = 'card-btn next-btn';
-        backBtn.innerText = '🏠 العودة للرئيسية';
-        backBtn.style.marginTop = '2rem';
-
-        const hasFiles = data.summaryData.files?.length > 0;
-        const hasImages = data.summaryData.images?.length > 0;
-        const hasOldContent = data.summaryData.content?.length > 100;
-
-        if (hasFiles || hasImages) {
-            tabsContainer.style.display = 'flex';
-            if (hasFiles) {
-                let filesHtml = '<ul class="file-download-list">';
-                const checks = data.summaryData.files.map(async f => {
-                    if(await fileExists(f.path)) {
-                        let icon = f.type==='pdf'?'📕':f.type==='doc'?'📘':'📄';
-                        return `<li class="file-download-item"><a href="${f.path}" target="_blank" class="file-download-link"><span class="file-download-icon">${icon}</span><span class="file-download-name">${f.name}</span></a></li>`;
-                    } return '';
-                });
-                const res = await Promise.all(checks);
-                filesContentEl.innerHTML = res.join('') || '<p class="placeholder">لا توجد ملفات متاحة.</p>';
-            } else { filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات.</p>'; }
-            
-            if (hasImages) {
-                let imgHtml = '<div class="gallery-grid">';
-                const checks = data.summaryData.images.map(async i => {
-                    if(await fileExists(i.path)) {
-                        return `<div class="gallery-item"><img src="${i.path}" alt="صورة"><p>${i.caption||'صورة'}</p></div>`;
-                    } return '';
-                });
-                const res = await Promise.all(checks);
-                imagesContentEl.innerHTML = res.join('') ? (imgHtml + res.join('') + '</div>') : '<p class="placeholder">لا توجد صور.</p>';
-            } else { imagesContentEl.innerHTML = '<p class="placeholder">لا توجد صور.</p>'; }
-
-            filesContentEl.appendChild(backBtn.cloneNode(true));
-            imagesContentEl.appendChild(backBtn.cloneNode(true));
-        
-            const fTab = $('btn-summary-files');
-            const iTab = $('btn-summary-images');
-
-            fTab.addEventListener('click', () => {
-                filesContentEl.style.display = 'block';
-                imagesContentEl.style.display = 'none';
-                fTab.classList.add('active');
-                iTab.classList.remove('active');
-                logActivity('Viewed Summary Files', subjectTitle);
-            });
-
-            iTab.addEventListener('click', () => {
-                filesContentEl.style.display = 'none';
-                imagesContentEl.style.display = 'block';
-                fTab.classList.remove('active');
-                iTab.classList.add('active');
-                logActivity('Viewed Image Gallery', subjectTitle);
-            });
-            
-            if (filesContentEl.innerHTML.includes('li')) fTab.click(); 
-            else if (imagesContentEl.innerHTML.includes('img')) iTab.click();
-            else fTab.click();
-
-            const modal = $('lightbox-modal');
-            if(modal) {
-                const modalImg = $('lightbox-img');
-                const closeModal = $('lightbox-close');
-                
-                const closeLightbox = () => modal.classList.remove('show');
-                closeModal.onclick = closeLightbox;
-                modal.onclick = (e) => { if (e.target === modal) closeLightbox(); };
-                
-                setTimeout(() => {
-                    document.querySelectorAll('.gallery-item img').forEach(img => img.onclick = () => { modal.classList.add('show'); modalImg.src = img.src; });
-                    filesContentEl.querySelectorAll('img').forEach(img => img.onclick = () => { modal.classList.add('show'); modalImg.src = img.src; });
-                }, 500);
+        // عرض الملفات
+        if (data.files?.length) {
+            let filesHtml = '<ul class="file-download-list">';
+            for (const f of data.files) {
+                if(await fileExists(f.path)) {
+                    let icon = f.type==='pdf'?'📕':f.type==='doc'?'📘':'📄';
+                    filesHtml += `<li class="file-download-item"><a href="${f.path}" target="_blank" class="file-download-link"><span class="file-download-icon">${icon}</span><span class="file-download-name">${f.name}</span></a></li>`;
+                }
             }
-
-        } else if (hasOldContent) {
-            tabsContainer.style.display = 'none';
-            imagesContentEl.style.display = 'none';
-            filesContentEl.innerHTML = data.summaryData.content;
-            filesContentEl.appendChild(backBtn);
-            logActivity('Viewed Summary (Old)', subjectTitle);
-
+            filesContentEl.innerHTML = filesHtml + '</ul>';
         } else {
-            tabsContainer.style.display = 'none';
-            imagesContentEl.style.display = 'none';
-            filesContentEl.innerHTML = '<p class="placeholder">الملخص غير متاح.</p>';
+            filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات متاحة.</p>';
         }
-    } catch (e) { titleEl.innerText = 'خطأ في التحميل'; }
+
+        // عرض الصور
+        if (data.images?.length) {
+            let imgHtml = '<div class="gallery-grid">';
+            for (const img of data.images) {
+                if(await fileExists(img.path)) {
+                    imgHtml += `<div class="gallery-item"><img src="${img.path}" alt="صورة"><p>${img.caption||''}</p></div>`;
+                }
+            }
+            imagesContentEl.innerHTML = imgHtml + '</div>';
+            setupLightbox(); // تفعيل العرض المكبر
+        } else {
+            imagesContentEl.innerHTML = '<p class="placeholder">لا توجد صور متاحة.</p>';
+        }
+
+        // التبديل بين التبويبات
+        document.querySelector('.summary-tabs').style.display = 'flex';
+        fTab.addEventListener('click', () => {
+            filesContentEl.style.display = 'block'; imagesContentEl.style.display = 'none';
+            fTab.classList.add('active'); iTab.classList.remove('active');
+        });
+        iTab.addEventListener('click', () => {
+            filesContentEl.style.display = 'none'; imagesContentEl.style.display = 'block';
+            fTab.classList.remove('active'); iTab.classList.add('active');
+        });
+        fTab.click();
+
+    } catch (e) {
+        titleEl.innerText = 'الملخص غير متاح حالياً';
+        filesContentEl.innerHTML = '<p class="placeholder">لم يتم رفع ملف الملخص لهذه المادة بعد.</p>';
+    }
 }
 
-// لوحة التقدم
-async function initDashboardPage() {
-    const container = $('dashboard-content');
-    if (!container) return;
-
-    if (!STUDENT_ID) {
-        container.innerHTML = '<p class="dashboard-empty-state">الرجاء تسجيل الدخول أولاً.</p>';
-        return;
-    }
-    container.innerHTML = '<p class="dashboard-empty-state">جاري تحميل إحصائياتك...</p>';
-
-    try {
-        const [stats, results] = await Promise.all([
-            fetch(`${API_URL}/students/${STUDENT_ID}/stats`).then(r=>r.json()),
-            fetch(`${API_URL}/students/${STUDENT_ID}/results`).then(r=>r.json())
-        ]);
-
-        if (stats.error) throw new Error('فشل التحميل');
-
-        let html = `
-            <div class="dashboard-summary-grid">
-                <div class="summary-box"><p class="summary-box-label">الاختبارات</p><p class="summary-box-value">${stats.totalQuizzes}</p></div>
-                <div class="summary-box"><p class="summary-box-label">المتوسط</p><p class="summary-box-value ${stats.averageScore>=50?'correct':'incorrect'}">${stats.averageScore}</p></div>
-                <div class="summary-box"><p class="summary-box-label">الأفضل</p><p class="summary-box-value level-excellent">${stats.bestScore}</p></div>
-            </div><div class="results-divider"></div>`;
-
-        const byQuiz = {};
-        results.forEach(r => { if(!byQuiz[r.quizName]) byQuiz[r.quizName]=[]; byQuiz[r.quizName].push(r); });
-
-        for (const q in byQuiz) {
-            html += `<div class="subject-history-card"><h3>${q}</h3><ul class="history-list">`;
-            byQuiz[q].forEach(r => {
-                let cls = r.score>=300?'excellent':r.score>=150?'good':r.score>=50?'pass':'fail';
-                html += `<li class="history-item"><span class="score level-${cls}">${r.score} نقطة</span><span class="score-details">(${r.correctAnswers}/${r.totalQuestions})</span><span class="history-date">${new Date(r.completedAt).toLocaleDateString('ar-EG')}</span></li>`;
-            });
-            html += '</ul></div>';
-        }
-        container.innerHTML = results.length ? html : '<p class="dashboard-empty-state">لا توجد اختبارات.</p>';
-    } catch (e) { container.innerHTML = '<p class="dashboard-empty-state" style="color:red">فشل التحميل.</p>'; }
+function setupLightbox() {
+    const modal = $('lightbox-modal');
+    const modalImg = $('lightbox-img');
+    if(!modal) return;
+    
+    document.querySelectorAll('.gallery-item img').forEach(img => {
+        img.onclick = () => { modal.classList.add('show'); modalImg.src = img.src; };
+    });
+    $('lightbox-close').onclick = () => modal.classList.remove('show');
+    modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('show'); };
 }
 
 /* -------------------------------------------------------------------------- */
-/* 7. منطق الاختبار (Levels System)                                          */
+/* 8. صفحة الاختبار (Quiz Logic & Levels)                                    */
 /* -------------------------------------------------------------------------- */
 
 async function initQuizPage(subjectKey) {
-    if(!subjectKey) return;
+    if(!subjectKey || !SUBJECTS[subjectKey]) return;
+    
     const titleEl = $('quiz-title');
     const body = $('quiz-body');
     const footer = $('quiz-footer');
-
-    if (!SUBJECTS[subjectKey]) { titleEl.innerText = 'خطأ'; return; }
+    
     titleEl.innerText = SUBJECTS[subjectKey].title;
     footer.style.display = 'none';
 
-    // 1. جلب نتائج الطالب لمعرفة المستويات المفتوحة
-    let results = [];
+    // جلب نتائج الطالب السابقة لتحديد المستويات المفتوحة
+    let pastResults = [];
     try {
         const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results`);
-        results = await res.json();
+        pastResults = await res.json();
     } catch (e) {}
 
-    // 2. بناء واجهة المستويات
+    // بناء واجهة المستويات
     let html = '<div class="levels-grid">';
-
+    
     LEVEL_CONFIG.forEach((lvl, idx) => {
-        const quizTitlePart = lvl.titleSuffix; 
-
-        // حساب أفضل درجة لهذا المستوى
-        let myScore = 0;
-        const myAttempts = results.filter(r => r.quizName.includes(SUBJECTS[subjectKey].title) && r.quizName.includes(quizTitlePart));
-        if (myAttempts.length) {
-            myScore = Math.max(...myAttempts.map(r => Math.round((r.correctAnswers/r.totalQuestions)*100)));
-        }
-
-        // التحقق من القفل
+        // التحقق من القفل: المستوى 1 مفتوح دائماً، الباقي يعتمد على السابق
         let locked = false;
         if (idx > 0) {
-            const prevLvlName = LEVEL_CONFIG[idx-1].titleSuffix;
-            const prevAttempts = results.filter(r => r.quizName.includes(SUBJECTS[subjectKey].title) && r.quizName.includes(prevLvlName));
-            const passed = prevAttempts.some(r => (r.correctAnswers/r.totalQuestions) >= 0.8);
+            const prevLvl = LEVEL_CONFIG[idx - 1];
+            const prevAttempts = pastResults.filter(r => 
+                r.quizName.includes(SUBJECTS[subjectKey].title) && 
+                r.quizName.includes(prevLvl.titleSuffix)
+            );
+            // هل نجح في المستوى السابق؟
+            const passed = prevAttempts.some(r => {
+                const percent = (r.correctAnswers / r.totalQuestions) * 100;
+                return percent >= prevLvl.requiredScore;
+            });
             if (!passed) locked = true;
         }
 
-        const btnCls = locked ? 'locked-btn' : 'start';
-        const btnTxt = locked ? `🔒 مغلق (مطلوب 80% في المستوى ${idx})` : '🚀 ابدأ الاختبار';
-        const action = locked ? '' : `loadLevelFile('${subjectKey}', ${idx})`;
-        const badge = myScore > 0 ? `<div style="color:${myScore>=80?'var(--color-correct)':'var(--color-pass)'};margin-bottom:10px;font-weight:bold;">أفضل درجة: ${myScore}%</div>` : '';
+        // عرض أفضل درجة
+        const myAttempts = pastResults.filter(r => 
+            r.quizName.includes(SUBJECTS[subjectKey].title) && 
+            r.quizName.includes(lvl.titleSuffix)
+        );
+        const bestScore = myAttempts.length ? Math.max(...myAttempts.map(r => Math.round((r.correctAnswers/r.totalQuestions)*100))) : 0;
+
+        const btnClass = locked ? 'locked-btn' : 'start';
+        const btnText = locked ? `🔒 مغلق (مطلوب ${LEVEL_CONFIG[idx-1]?.requiredScore}% في المستوى السابق)` : '🚀 ابدأ الاختبار';
+        const onClick = locked ? '' : `loadLevelFile('${subjectKey}', ${idx})`;
+        const badge = bestScore > 0 ? `<div style="color:${bestScore>=lvl.requiredScore?'var(--color-correct)':'var(--color-pass)'};margin-bottom:10px;font-weight:bold;">أفضل درجة: ${bestScore}%</div>` : '';
 
         html += `
             <div class="level-card ${locked?'locked':''}">
                 <div class="level-icon">${locked?'🔒':'🔓'}</div>
                 <h3 class="level-title">${lvl.name}</h3>
                 ${badge}
-                <button class="level-btn ${btnCls}" onclick="${action}">${btnTxt}</button>
+                <button class="level-btn ${btnClass}" onclick="${onClick}">${btnText}</button>
             </div>
         `;
     });
@@ -682,34 +507,29 @@ async function initQuizPage(subjectKey) {
     body.innerHTML = html + '</div>';
 }
 
-// دالة تحميل ملف المستوى (Global)
+// دالة تحميل ملف الاختبار المحدد
 window.loadLevelFile = async (subjectKey, levelIndex) => {
     const config = LEVEL_CONFIG[levelIndex];
-    // (تصحيح المسار ليكون ديناميكياً وصحيحاً)
-    const fileName = `data_${subjectKey}${config.suffix}`; 
+    // بناء المسار: data_subject/data_subject_quiz_X.json
+    const fileName = `data_${subjectKey}${config.suffix}`;
     const url = `data_${subjectKey}/${fileName}?v=${Date.now()}`;
 
-    $('quiz-body').innerHTML = '<p style="text-align:center; padding:3rem;">جاري تحميل أسئلة الاختبار...</p>';
+    $('quiz-body').innerHTML = '<p style="text-align:center; padding:3rem;">جاري تحميل الأسئلة...</p>';
 
     try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error('ملف الاختبار غير موجود');
+        if (!res.ok) throw new Error('File not found');
         const quizData = await res.json();
         
         const fullTitle = `${SUBJECTS[subjectKey].title} - ${config.titleSuffix}`;
         initAndStartQuiz(quizData.questions, fullTitle);
     } catch (e) {
-        alert('عذراً، ملف الأسئلة غير موجود حالياً.\nتأكد من رفع الملف: ' + fileName);
-        initQuizPage(subjectKey);
+        alert('عذراً، ملف أسئلة هذا المستوى غير متوفر حالياً.');
+        initQuizPage(subjectKey); // العودة للقائمة
     }
 };
 
-/* -------------------------------------------------------------------------- */
-/* 8. محرك الاختبارات (Global Quiz Engine)                                   */
-/* -------------------------------------------------------------------------- */
-
 function initAndStartQuiz(questions, title) {
-    // إعادة تعيين المتغيرات
     currentQuestions = [...questions].sort(() => Math.random() - 0.5);
     currentQuizTitle = title;
     currentQuestionIndex = 0;
@@ -717,7 +537,6 @@ function initAndStartQuiz(questions, title) {
     currentCorrectCount = 0;
     incorrectQuestions = [];
 
-    // بناء الهيكل
     $('quiz-body').innerHTML = `
         <h3 id="question-text"></h3>
         <div id="opts" class="options-container"></div>
@@ -729,8 +548,8 @@ function initAndStartQuiz(questions, title) {
     const btn = $('next-btn');
     btn.style.display = 'block';
     btn.innerText = 'التالي';
-    btn.onclick = handleNextButton; // ربط الزر
-
+    btn.onclick = handleNextButton;
+    
     loadQuestion();
 }
 
@@ -739,73 +558,57 @@ function loadQuestion() {
     $('question-text').innerText = q.question;
     $('question-counter').innerText = `السؤال ${currentQuestionIndex + 1} / ${currentQuestions.length}`;
     $('progress-bar').style.width = `${((currentQuestionIndex + 1) / currentQuestions.length) * 100}%`;
-    
-    const feedback = $('feedback');
-    feedback.innerText = ''; 
-    feedback.className = 'feedback';
-    
+    $('feedback').innerText = '';
     $('next-btn').disabled = true;
+    
     questionStartTime = Date.now();
-
     const optsDiv = $('opts');
     optsDiv.innerHTML = '';
 
-    if (q.type === 'tf') {
-        ['صح', 'خطأ'].forEach((txt, i) => {
-            const isTrue = i === 0; 
-            const btn = document.createElement('button');
-            btn.className = 'option-btn';
-            btn.innerHTML = `<span class="option-text">${txt}</span><span class="icon"></span>`;
-            btn.onclick = () => checkAnswer(btn, isTrue === q.answer);
-            optsDiv.appendChild(btn);
-        });
-    } else {
-        q.options.forEach((opt, i) => {
-            const btn = document.createElement('button');
-            btn.className = 'option-btn';
-            btn.innerHTML = `<span class="option-text">${opt}</span><span class="icon"></span>`;
-            btn.onclick = () => checkAnswer(btn, i === q.answer);
-            optsDiv.appendChild(btn);
-        });
-    }
+    const options = q.type === 'tf' ? ['صح', 'خطأ'] : q.options;
+    
+    options.forEach((txt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = `<span class="option-text">${txt}</span><span class="icon"></span>`;
+        
+        // تحديد الإجابة الصحيحة
+        let isCorrect = false;
+        if (q.type === 'tf') isCorrect = (i === 0) === q.answer; // 0=صح
+        else isCorrect = (i === q.answer);
+
+        btn.onclick = () => checkAnswer(btn, isCorrect);
+        optsDiv.appendChild(btn);
+    });
     
     $('quiz-body').style.display = 'block';
 }
 
-// (دالة عامة للتحقق من الإجابة)
-window.checkAnswer = function(btn, isCorrect) {
+function checkAnswer(btn, isCorrect) {
     document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-    const timeTaken = (Date.now() - questionStartTime) / 1000; // (تم تعريف المتغير هنا)
+    const timeTaken = (Date.now() - questionStartTime) / 1000;
     
     if (isCorrect) {
         currentCorrectCount++;
-        let pts = 20;
-        const q = currentQuestions[currentQuestionIndex];
-        if (q.difficulty === 'hard') pts = 30;
-        else if (q.difficulty === 'easy') pts = 10;
-        
-        if (timeTaken < 5) pts += 5;
-        
+        let pts = 10;
+        if (timeTaken < 5) pts += 5; // نقاط سرعة
         currentScore += pts;
         btn.classList.add('correct');
-        $('feedback').innerText = `✅ إجابة صحيحة! (+${pts} نقطة)`;
+        $('feedback').innerText = `✅ إجابة صحيحة! (+${pts})`;
         $('feedback').classList.add('correct');
+        $('feedback').classList.remove('incorrect');
     } else {
         btn.classList.add('incorrect');
         $('feedback').innerText = '❌ إجابة خاطئة';
         $('feedback').classList.add('incorrect');
+        $('feedback').classList.remove('correct');
         incorrectQuestions.push(currentQuestions[currentQuestionIndex]);
     }
     
     const nextBtn = $('next-btn');
     nextBtn.disabled = false;
-    
-    if (currentQuestionIndex === currentQuestions.length - 1) {
-        nextBtn.innerText = 'عرض النتيجة';
-    } else {
-        nextBtn.innerText = 'السؤال التالي ←';
-    }
-};
+    nextBtn.innerText = (currentQuestionIndex === currentQuestions.length - 1) ? 'عرض النتيجة' : 'السؤال التالي ←';
+}
 
 function handleNextButton() {
     if (currentQuestionIndex < currentQuestions.length - 1) {
@@ -827,21 +630,17 @@ function showResults() {
     }
 
     const percent = Math.round((currentCorrectCount / currentQuestions.length) * 100);
-    
-    let reviewBtn = '';
-    if (incorrectQuestions.length > 0) {
-        reviewBtn = `<button onclick="startReview()" class="card-btn btn-summary" style="background-color: var(--color-incorrect); color: white;">🔁 مراجعة الأخطاء (${incorrectQuestions.length})</button>`;
-    }
+    let reviewBtn = incorrectQuestions.length ? `<button onclick="startReview()" class="card-btn btn-summary" style="background-color:var(--color-incorrect);color:white;">🔁 مراجعة الأخطاء (${incorrectQuestions.length})</button>` : '';
 
     resDiv.innerHTML = `
         <div class="results-chart" style="--percentage-value:${percent*3.6}deg"><span class="percentage-text">${percent}%</span></div>
         <h3>${currentQuizTitle}</h3>
         <h2 style="color:var(--primary-color)">${currentScore} نقطة</h2>
         <p>أجبت ${currentCorrectCount} من ${currentQuestions.length} بشكل صحيح.</p>
-        <div class="results-actions" style="flex-wrap:wrap; justify-content:center; gap:10px;">
+        <div class="results-actions">
             ${reviewBtn}
-            <button onclick="location.reload()" class="card-btn btn-summary">القائمة الرئيسية</button>
-            <button onclick="location.reload()" class="next-btn">إعادة</button>
+            <a href="index.html" class="card-btn btn-summary">القائمة الرئيسية</a>
+            <button onclick="location.reload()" class="next-btn">إعادة الاختبار</button>
         </div>
     `;
 }
@@ -849,3 +648,40 @@ function showResults() {
 window.startReview = function() {
     initAndStartQuiz(incorrectQuestions, `${currentQuizTitle} (مراجعة)`);
 };
+
+/* -------------------------------------------------------------------------- */
+/* 9. لوحة التقدم (Dashboard)                                                */
+/* -------------------------------------------------------------------------- */
+
+async function initDashboardPage() {
+    const container = $('dashboard-content');
+    if (!STUDENT_ID) { container.innerHTML = '<p class="dashboard-empty-state">الرجاء تسجيل الدخول.</p>'; return; }
+    
+    try {
+        const [stats, results] = await Promise.all([
+            fetch(`${API_URL}/students/${STUDENT_ID}/stats`).then(r=>r.json()),
+            fetch(`${API_URL}/students/${STUDENT_ID}/results`).then(r=>r.json())
+        ]);
+
+        if (stats.error) throw new Error();
+
+        let html = `
+            <div class="dashboard-summary-grid">
+                <div class="summary-box"><p class="summary-box-label">الاختبارات</p><p class="summary-box-value">${stats.totalQuizzes}</p></div>
+                <div class="summary-box"><p class="summary-box-label">المتوسط</p><p class="summary-box-value ${stats.averageScore>=50?'correct':'incorrect'}">${stats.averageScore}</p></div>
+                <div class="summary-box"><p class="summary-box-label">الأفضل</p><p class="summary-box-value level-excellent">${stats.bestScore}</p></div>
+            </div><div class="results-divider"></div>`;
+
+        const byQuiz = {};
+        results.forEach(r => { if(!byQuiz[r.quizName]) byQuiz[r.quizName]=[]; byQuiz[r.quizName].push(r); });
+
+        for (const q in byQuiz) {
+            html += `<div class="subject-history-card"><h3>${q}</h3><ul class="history-list">`;
+            byQuiz[q].forEach(r => {
+                html += `<li class="history-item"><span class="score">${r.score} نقطة</span><span class="score-details">(${r.correctAnswers}/${r.totalQuestions})</span><span class="history-date">${new Date(r.completedAt).toLocaleDateString('ar-EG')}</span></li>`;
+            });
+            html += '</ul></div>';
+        }
+        container.innerHTML = results.length ? html : '<p class="dashboard-empty-state">لا توجد اختبارات.</p>';
+    } catch (e) { container.innerHTML = '<p class="dashboard-empty-state">فشل التحميل.</p>'; }
+}
