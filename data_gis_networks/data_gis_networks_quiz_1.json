@@ -1,0 +1,8 @@
+{
+  "title": "شبكات - المستوى 1",
+  "questions": [
+     { "type": "tf", "question": "المسارات هي خطوط لا يمكن العودة فيها لنقطة البداية؟", "answer": true, "difficulty": "easy", "topic": "مفاهيم" },
+     { "type": "mc", "question": "...", "options": [".."], "answer": 0, "difficulty": "easy", "topic": ".." }
+     // ... ضع هنا أسئلة المستوى الأول فقط
+  ]
+}
