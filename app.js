@@ -1,11 +1,12 @@
 /*
  * =================================================================================
  * APP.JS - Tawal Academy Client Logic
- * Version: 14.3.0 (Cache Fix & Final Polish)
+ * Version: 14.4.0 (Arabic Normalization Fix)
  * =================================================================================
- * * التحديثات:
- * 1. حل مشكلة عدم فتح المستويات (إجبار تحديث النتائج ومنع الكاش).
- * 2. تحسين دقة مطابقة أسماء الاختبارات.
+ * * الإصلاح الجذري:
+ * 1. حل مشكلة عدم تطابق الحروف العربية (ي/ى - ه/ة - أ/ا).
+ * 2. الآن سيتم فتح المستويات حتى لو اختلف حرف واحد في العنوان.
+ * 3. تحسين استقرار تحميل النتائج.
  * =================================================================================
  */
 
@@ -24,10 +25,9 @@ let FINGERPRINT_ID = null;
 const DEFAULT_SUBJECT = 'gis_networks';
 
 // إعدادات المستويات
-// requiredScore: الدرجة المطلوبة في هذا المستوى لفتح المستوى الذي يليه
 const LEVEL_CONFIG = [
-    { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 50 }, // يجب أن تجيب 50% هنا لفتح المستوى 2
-    { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 }, // يجب أن تجيب 80% هنا لفتح المستوى 3
+    { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 50 }, 
+    { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 }, 
     { id: 3, suffix: '_quiz_3.json', titleSuffix: 'المستوى 3', name: 'المستوى الثالث (متقدم)', requiredScore: 85 }
 ];
 
@@ -45,7 +45,7 @@ const LOGO_SVG = `
 
 const SUBJECTS = {
     gis_networks: {
-        title: "تطبيقات نظم المعلومات الجغرافية فى الشبكات",
+        title: "تطبيقات نظم المعلومات الجغرافية في الشبكات", // تم توحيد الياء
         icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>'
     },
     transport: {
@@ -85,6 +85,16 @@ function getSubjectKey() {
         const params = new URLSearchParams(window.location.search);
         return params.get('subject') || DEFAULT_SUBJECT;
     } catch (e) { return DEFAULT_SUBJECT; }
+}
+
+// دالة توحيد النصوص العربية (الحل السحري)
+function normalizeArabic(text) {
+    if (!text) return "";
+    return text
+        .replace(/(آ|إ|أ)/g, 'ا')
+        .replace(/(ة)/g, 'ه')
+        .replace(/(ى)/g, 'ي') // يعالج مشكلة فى/في
+        .trim();
 }
 
 function isValidName(name) { return /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/.test(name.trim()); }
@@ -431,22 +441,26 @@ async function initQuizPage(subjectKey) {
 
     let pastResults = [];
     try {
-        // [هام جداً]: إضافة الطابع الزمني لإجبار المتصفح على جلب النتائج الجديدة
         const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results?t=${Date.now()}`);
         pastResults = await res.json();
+        console.log('Fetched Results:', pastResults); // Debug
     } catch (e) {}
 
     let html = '<div class="levels-grid" style="display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));">';
     
+    // تحضير الاسم الموحد للمادة للمقارنة
+    const currentSubjectTitleNorm = normalizeArabic(SUBJECTS[subjectKey].title);
+
     LEVEL_CONFIG.forEach((lvl, idx) => {
         let locked = false;
         if (idx > 0) {
             const prevLvl = LEVEL_CONFIG[idx - 1];
-            const prevAttempts = pastResults.filter(r => 
-                r.quizName && 
-                r.quizName.includes(SUBJECTS[subjectKey].title) && 
-                r.quizName.includes(prevLvl.titleSuffix)
-            );
+            // FIX: استخدام دالة التطبيع للمقارنة
+            const prevAttempts = pastResults.filter(r => {
+                if(!r.quizName) return false;
+                const rNameNorm = normalizeArabic(r.quizName);
+                return rNameNorm.includes(currentSubjectTitleNorm) && r.quizName.includes(prevLvl.titleSuffix);
+            });
             
             const passed = prevAttempts.some(r => {
                 const percent = (r.correctAnswers / r.totalQuestions) * 100;
@@ -455,17 +469,17 @@ async function initQuizPage(subjectKey) {
             if (!passed) locked = true;
         }
 
-        const myAttempts = pastResults.filter(r => 
-            r.quizName && 
-            r.quizName.includes(SUBJECTS[subjectKey].title) && 
-            r.quizName.includes(lvl.titleSuffix)
-        );
+        const myAttempts = pastResults.filter(r => {
+            if(!r.quizName) return false;
+            const rNameNorm = normalizeArabic(r.quizName);
+            return rNameNorm.includes(currentSubjectTitleNorm) && r.quizName.includes(lvl.titleSuffix);
+        });
+
         const bestScore = myAttempts.length ? Math.max(...myAttempts.map(r => Math.round((r.correctAnswers/r.totalQuestions)*100))) : 0;
 
         const btnClass = locked ? 'locked-btn' : 'start';
         const btnStyle = locked ? 'background:#ccc; cursor:not-allowed;' : 'background:var(--primary-color-gradient); color:white;';
-        // تعديل النص ليكون أوضح للمستخدم
-        const btnText = locked ? `🔒 مغلق (يجب تحقيق ${LEVEL_CONFIG[idx-1]?.requiredScore}% في المستوى السابق)` : '🚀 ابدأ الاختبار';
+        const btnText = locked ? `🔒 مغلق (يجب تحقيق ${LEVEL_CONFIG[idx-1]?.requiredScore}% في السابق)` : '🚀 ابدأ الاختبار';
         const onClick = locked ? '' : `loadLevelFile('${subjectKey}', ${idx})`;
         const badge = bestScore > 0 ? `<div style="color:${bestScore>=lvl.requiredScore?'var(--color-correct)':'var(--color-pass)'};margin-bottom:10px;font-weight:bold;">أفضل درجة: ${bestScore}%</div>` : '';
 
@@ -494,6 +508,7 @@ window.loadLevelFile = async (subjectKey, levelIndex) => {
         if (!res.ok) throw new Error('File not found');
         const quizData = await res.json();
         
+        // استخدام العنوان الموحد عند الحفظ
         const fullTitle = `${SUBJECTS[subjectKey].title} - ${config.titleSuffix}`;
         runQuizEngine(quizData.questions, fullTitle);
     } catch (e) {
