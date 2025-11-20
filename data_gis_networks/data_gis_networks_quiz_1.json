@@ -1,8 +1,20 @@
 {
-  "title": "شبكات - المستوى 1",
+  "title": "المستوى الأول",
   "questions": [
-     { "type": "tf", "question": "المسارات هي خطوط لا يمكن العودة فيها لنقطة البداية؟", "answer": true, "difficulty": "easy", "topic": "مفاهيم" },
-     { "type": "mc", "question": "...", "options": [".."], "answer": 0, "difficulty": "easy", "topic": ".." }
-     // ... ضع هنا أسئلة المستوى الأول فقط
+    {
+      "type": "tf",
+      "question": "المسارات (Paths) هي أشكال من البنية الشبكية لا يمكن العودة فيها لنقطة البداية.",
+      "answer": true,
+      "difficulty": "easy",
+      "topic": "مفاهيم"
+    },
+    {
+      "type": "mc",
+      "question": "شبكة تحل مشكلة المسارات والشجرات وتسمح بالرجوع لنقطة البداية، تسمى:",
+      "options": ["دارة (Circuit)", "مسار (Path)", "شجرة (Tree)", "عقدة (Node)"],
+      "answer": 0,
+      "difficulty": "easy",
+      "topic": "مفاهيم"
+    }
   ]
 }
