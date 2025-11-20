@@ -1,109 +1,246 @@
 /*
- * APP.JS - Tawal Academy (Version 16.1.0 - Complete & Fixed)
+ * =================================================================================
+ * APP.JS - Tawal Academy Client Logic
+ * Version: 15.2.0 (The Fix for All 7 Reported Bugs)
+ * =================================================================================
+ * * هذا الإصدار تم بناؤه خصيصاً بناءً على تقرير الأخطاء الخاص بك.
+ * * يعالج مشاكل المصادقة، حفظ النتائج، تحميل البيانات، والروابط الخلفية.
+ * =================================================================================
  */
+
+/* -------------------------------------------------------------------------- */
+/* 1. إعدادات الاتصال والمتغيرات العامة                                      */
+/* -------------------------------------------------------------------------- */
 
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-const STORAGE_KEY_STUDENT_ID = 'tawal_student_id';
-const STORAGE_KEY_USER = 'tawal_user_data';
+// FIX #1: العودة لمفاتيح التخزين الدائمة (localStorage) بدلاً من الجلسة المؤقتة
+const STORAGE_KEY_ID = 'tawal_studentId_v4'; 
+const STORAGE_KEY_NAME = 'tawal_studentName_v4';
 
-let CURRENT_STUDENT_ID = localStorage.getItem(STORAGE_KEY_STUDENT_ID);
-let USER_DATA = null;
+// FIX #1: قراءة المعرف مباشرة لضمان عدم ضياع الجلسة
+let STUDENT_ID = localStorage.getItem(STORAGE_KEY_ID);
 let FINGERPRINT_ID = null;
 
 const DEFAULT_SUBJECT = 'gis_networks';
 
-const DATA_CACHE = new Map();
-const CACHE_DURATION = 5 * 60 * 1000;
-
+// إعدادات المستويات
 const LEVEL_CONFIG = [
     { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 50 },
     { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 },
     { id: 3, suffix: '_quiz_3.json', titleSuffix: 'المستوى 3', name: 'المستوى الثالث (متقدم)', requiredScore: 85 }
 ];
 
+const LOGO_SVG = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M40 8H8c-2.21 0-4 1.79-4 4v24c0 2.21 1.79 4 4 4h32c2.21 0 4-1.79 4-4V12c0-2.21-1.79-4-4-4z" fill="currentColor"/>
+        <path d="M18 20l6 12 6-12" stroke="white" stroke-width="2"/>
+        <line x1="16" y1="20" x2="32" y2="20" stroke="white" stroke-width="2"/>
+    </svg>
+`;
+
+/* -------------------------------------------------------------------------- */
+/* 2. قائمة المواد الدراسية                                                  */
+/* -------------------------------------------------------------------------- */
+
 const SUBJECTS = {
-    gis_networks: { id: 'gis_networks', title: "تطبيقات نظم المعلومات الجغرافية فى الشبكات" },
-    transport: { id: 'transport', title: "جغرافية النقل والمواصلات" },
-    geo_maps: { id: 'geo_maps', title: "الخرائط الجيولوجية" },
-    projections: { id: 'projections', title: "كتاب مساقط الخرائط" },
-    research: { id: 'research', title: "مقرر مناهج البحث الجغرافى" },
-    surveying_texts: { id: 'surveying_texts', title: "نصوص جغرافية فى المساحة والخرائط" },
-    arid_lands: { id: 'arid_lands', title: "جغرافيا الاراضي الجافة" }
+    gis_networks: {
+        title: "تطبيقات نظم المعلومات الجغرافية فى الشبكات",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>'
+    },
+    transport: {
+        title: "جغرافية النقل والمواصلات",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5 5"></path><path d="M10 17l5 5"></path><path d="M8 17l-5 5"></path><path d="M14 17l-5 5"></path><path d="M2 17h20"></path><path d="M2.6 10.5h18.8"></path><path d="M7 10.5l5 6.5"></path><path d="M17 10.5l-5 6.5"></path><path d="M12 10.5V17"></path><path d="M5.5 10.5C5.5 8 8.45 2 12 2s6.5 6 6.5 8.5Z"></path></svg>'
+    },
+    geo_maps: {
+        title: "الخرائط الجيولوجية",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="m10 14-2 2 2 2"></path><path d="m14 18 2-2-2-2"></path></svg>'
+    },
+    projections: {
+        title: "كتاب مساقط الخرائط",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>'
+    },
+    research: {
+        title: "مقرر مناهج البحث الجغرافى",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.09 13.6-2.2-2.2 2.2-2.2"></path><path d="m10.39 18.4 2.2-2.2-2.2-2.2"></path><path d="M3 22v-3.5a2.5 2.5 0 0 1 2.5-2.5h13A2.5 2.5 0 0 1 21 18.5V22"></path><path d="M2 13.3V3a1 1 0 0 1 1-1h11l5 5v10.3"></path><path d="M14 2v6h6"></path></svg>'
+    },
+    surveying_texts: {
+        title: "نصوص جغرافية فى المساحة والخرائط",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 16 4-4-4-4"></path><path d="m8 16 4-4-4-4"></path><path d="M2 12h20"></path></svg>'
+    },
+    arid_lands: {
+        title: "جغرافيا الاراضي الجافة",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.1 12.4C17.1 12.4 17 14 17 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M5.1 12.4C5.1 12.4 5 14 5 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M11.1 12.4C11.1 12.4 11 14 11 15s.9 3 2.1 3.6c1.2.6 2.4.6 3.1.3 1-.4 1.9-1.3 2-2.5.1-1.1-.5-2.1-1.2-2.8-.7-.7-1.7-1-2.5-1.1-1.2-.1-2.2.4-2.8 1-.6.6-1.1 1.4-1.1 2.2z"></path><path d="M12 2v2"></path><path d="m4.9 4.9 1.4 1.4"></path><path d="M2 12h2"></path><path d="m4.9 19.1 1.4-1.4"></path><path d="M12 22v-2"></path><path d="m19.1 19.1-1.4-1.4"></path><path d="M22 12h-2"></path><path d="m19.1 4.9-1.4 1.4"></path></svg>'
+    }
 };
 
+/* -------------------------------------------------------------------------- */
+/* 3. دوال المساعدة والتحقق                                                  */
+/* -------------------------------------------------------------------------- */
+
 function $(id) { return document.getElementById(id); }
+
 function getSubjectKey() {
     try {
         const params = new URLSearchParams(window.location.search);
-        return SUBJECTS[params.get('subject')] ? params.get('subject') : DEFAULT_SUBJECT;
+        return params.get('subject') || DEFAULT_SUBJECT;
     } catch (e) { return DEFAULT_SUBJECT; }
 }
 
-function shuffleArray(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
+// FIX #4: دالة توحيد النصوص لحل مشكلة المستويات نهائياً
+function normalizeText(text) {
+    if (!text) return "";
+    return text
+        .toString()
+        .replace(/(آ|إ|أ)/g, 'ا')
+        .replace(/(ة)/g, 'ه')
+        .replace(/(ى)/g, 'ي')
+        .replace(/[^\u0621-\u064A\s]/g, '') // إبقاء الحروف العربية فقط
+        .trim();
 }
 
-async function apiRequest(endpoint, options = {}) {
+function isValidName(name) { return /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/.test(name.trim()); }
+function isValidEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()); }
+
+async function fileExists(url) {
     try {
-        const response = await fetch(`${API_URL}${endpoint}`, {
-            ...options,
-            headers: { 'Content-Type': 'application/json', ...options.headers }
-        });
-        return response;
-    } catch (err) {
-        console.error('API Error:', err);
-        throw err;
-    }
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+    } catch (e) { return false; }
 }
+
+function showError(title, message) {
+    const quizContainer = document.querySelector('.quiz-container');
+    const mainContainer = document.querySelector('.main-container');
+    const html = `<div style="text-align:center;padding:3rem;"><h2 style="color:red;">${title}</h2><p>${message}</p></div>`;
+    
+    if (quizContainer) quizContainer.innerHTML = html;
+    else if (mainContainer) mainContainer.innerHTML = html;
+    else document.body.innerHTML = html;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4. دوال الاتصال بالخادم (Fixed for Bugs #2, #5, #6, #7)                   */
+/* -------------------------------------------------------------------------- */
+
+// FIX #6: إصلاح دالة تسجيل النشاط لترسل studentId
+function logActivity(activityType, subjectName = null) {
+    if (!STUDENT_ID) return; 
+    fetch(`${API_URL}/log-activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            studentId: STUDENT_ID, // استخدام ID بدلاً من التوكن
+            activityType, 
+            subjectName 
+        })
+    }).catch(err => console.error('Log Error:', err));
+}
+
+// FIX #2: إصلاح دالة حفظ النتائج (إرسال studentId وإلغاء subjectId)
+function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
+    if (!STUDENT_ID) return;
+    
+    fetch(`${API_URL}/quiz-results`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            studentId: STUDENT_ID, // المفتاح الصحيح للسيرفر
+            quizName: quizName.trim(), 
+            score, 
+            totalQuestions, 
+            correctAnswers 
+            // تم إزالة subjectId لأنه غير مدعوم
+        })
+    })
+    .then(() => console.log('✓ Result Saved'))
+    .catch(err => console.error('Save Error:', err));
+}
+
+// FIX #3: تحسين دالة تحميل البيانات لتعمل بشكل مستقل
+function loadSubjectData(subjectKey) {
+    return new Promise((resolve, reject) => {
+        if (!subjectKey || !SUBJECTS[subjectKey]) {
+            reject(new Error('المادة غير صالحة'));
+            return;
+        }
+        const qUrl = `data_${subjectKey}/data_${subjectKey}_quiz_1.json?v=${Date.now()}`;
+        const sUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
+
+        Promise.all([
+            fetch(qUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch(sUrl).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+        ])
+        .then(results => {
+            resolve({ 
+                hasQuiz: !!results[0], 
+                quizFirstLevel: results[0],
+                summaryData: results[1] 
+            });
+        })
+        .catch(reject);
+    });
+}
+
+/* -------------------------------------------------------------------------- */
+/* 5. نظام المصادقة (Fixed for Bug #1 & #5)                                  */
+/* -------------------------------------------------------------------------- */
 
 async function getFingerprint() {
     try {
-        if (!window.FingerprintJS) return 'fallback_' + Math.random().toString(36).substr(2, 9);
         const fp = await FingerprintJS.load();
         const result = await fp.get();
         return result.visitorId;
-    } catch (err) {
-        return 'fallback_' + Math.random().toString(36).substr(2, 9);
-    }
+    } catch (err) { return null; }
 }
 
+// Modal للتسجيل
 function showRegistrationModal() {
     return new Promise((resolve) => {
         const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(5px);';
+        
         modal.innerHTML = `
-            <div style="background:white;padding:2rem;border-radius:12px;max-width:400px;width:90%;">
-                <h2 style="margin-bottom:1.5rem;color:#333;">مرحباً بك في Tawal Academy 🎓</h2>
-                <form id="reg-form">
-                    <input type="text" id="reg-name" required placeholder="الاسم الثلاثي" style="width:100%;padding:0.75rem;border:2px solid #ddd;border-radius:8px;margin-bottom:1rem;">
-                    <input type="email" id="reg-email" required placeholder="البريد الإلكتروني" style="width:100%;padding:0.75rem;border:2px solid #ddd;border-radius:8px;margin-bottom:1rem;">
-                    <div id="reg-error" style="color:red;margin-bottom:1rem;display:none;"></div>
-                    <div style="display:flex;gap:1rem;">
-                        <button type="submit" style="flex:1;padding:0.75rem;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;border:none;border-radius:8px;cursor:pointer;">تسجيل</button>
-                        <button type="button" id="reg-cancel" style="flex:1;padding:0.75rem;background:#ccc;color:#333;border:none;border-radius:8px;cursor:pointer;">إلغاء</button>
+            <div style="background:var(--bg-secondary-color, #2a2a4e); padding:2rem; border-radius:15px; max-width:400px; width:90%; border:1px solid #444; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+                <h2 style="margin-bottom:1.5rem; color:var(--primary-color, #8f94fb); text-align:center;">أهلاً بك في Tawal Academy 🎓</h2>
+                <form id="registration-form">
+                    <div style="margin-bottom:1rem;">
+                        <label style="display:block; margin-bottom:0.5rem; color:#ccc;">الاسم الثلاثي:</label>
+                        <input type="text" id="reg-name" required style="width:100%; padding:0.75rem; border:1px solid #555; background:#1a1a2e; color:white; border-radius:8px; font-size:1rem;" placeholder="مثال: محمد أحمد علي">
                     </div>
+                    <div style="margin-bottom:1.5rem;">
+                        <label style="display:block; margin-bottom:0.5rem; color:#ccc;">البريد الإلكتروني:</label>
+                        <input type="email" id="reg-email" required style="width:100%; padding:0.75rem; border:1px solid #555; background:#1a1a2e; color:white; border-radius:8px; font-size:1rem;" placeholder="example@email.com">
+                    </div>
+                    <div id="reg-error" style="color:#e74c3c; margin-bottom:1rem; display:none; text-align:center;"></div>
+                    <button type="submit" style="width:100%; padding:0.8rem; background:linear-gradient(90deg, #4e54c8, #8f94fb); color:white; border:none; border-radius:8px; cursor:pointer; font-size:1rem; font-weight:bold;">تسجيل الدخول</button>
                 </form>
             </div>
         `;
+        
         document.body.appendChild(modal);
         
-        document.getElementById('reg-form').onsubmit = async (e) => {
+        const form = modal.querySelector('#registration-form');
+        const errorDiv = modal.querySelector('#reg-error');
+        
+        form.onsubmit = async (e) => {
             e.preventDefault();
-            const name = document.getElementById('reg-name').value.trim();
-            const email = document.getElementById('reg-email').value.trim();
+            const name = modal.querySelector('#reg-name').value.trim();
+            const email = modal.querySelector('#reg-email').value.trim();
+            
+            if (!isValidName(name)) {
+                errorDiv.innerText = 'الرجاء كتابة اسم صحيح (حروف فقط)';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            if (!isValidEmail(email)) {
+                errorDiv.innerText = 'البريد الإلكتروني غير صالح';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
             document.body.removeChild(modal);
             resolve({ name, email });
-        };
-        
-        document.getElementById('reg-cancel').onclick = () => {
-            document.body.removeChild(modal);
-            resolve(null);
         };
     });
 }
@@ -113,195 +250,311 @@ async function registerStudent(fingerprint) {
     if (!userData) return false;
 
     try {
+        // FIX #5: التوافق مع استجابة السيرفر الحالية (بدون توكن)
         const response = await fetch(`${API_URL}/students/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: userData.name, email: userData.email, fingerprint })
         });
-
         const data = await response.json();
+
         if (response.status === 403) {
-            alert('الجهاز محظور');
+            showError('الجهاز محظور', data.error);
             return false;
         }
-
         if (data.id) {
-            CURRENT_STUDENT_ID = data.id;
-            USER_DATA = data;
-            localStorage.setItem(STORAGE_KEY_STUDENT_ID, data.id);
-            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data));
-            alert(`أهلاً بك يا ${data.name}!`);
+            STUDENT_ID = data.id;
+            localStorage.setItem(STORAGE_KEY_ID, data.id);
+            localStorage.setItem(STORAGE_KEY_NAME, data.name);
             return true;
+        } else if (data.error && data.error.includes('موجود')) {
+            alert('⚠️ هذا البريد مسجل بالفعل.');
+            return false;
+        } else {
+            alert('حدث خطأ: ' + data.error);
+            return false;
         }
-        return false;
     } catch (err) {
-        alert('فشل الاتصال بالخادم');
+        alert('فشل الاتصال بالخادم.');
         return false;
     }
 }
 
-async function verifyExistingStudent() {
-    const storedId = localStorage.getItem(STORAGE_KEY_STUDENT_ID);
-    if (!storedId) return false;
-
+async function verifyStudent(localId) {
+    if (!localId) return { status: 'new_user' };
     try {
-        const response = await apiRequest(`/students/${storedId}`);
-        if (!response || !response.ok) {
-            localStorage.clear();
-            return false;
-        }
-        const student = await response.json();
-        if (student.isblocked) {
-            alert('الحساب محظور');
-            return false;
-        }
-        CURRENT_STUDENT_ID = student.id;
-        USER_DATA = student;
-        return true;
-    } catch (err) {
-        localStorage.clear();
-        return false;
-    }
+        const response = await fetch(`${API_URL}/students/${localId}`);
+        if (response.ok) {
+            const student = await response.json();
+            if (student.isblocked) return { status: 'account_blocked' };
+            STUDENT_ID = localId;
+            return { status: 'valid' };
+        } else { return { status: 'id_mismatch' }; }
+    } catch (err) { return { status: 'network_error' }; }
 }
 
-async function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
-    if (!CURRENT_STUDENT_ID) return;
-    
+async function loginWithFingerprint(studentId, fingerprint) {
+    if (!studentId || !fingerprint) return { status: 'error' };
     try {
-        await apiRequest('/quiz-results', {
+        const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
-            body: JSON.stringify({
-                studentId: CURRENT_STUDENT_ID,
-                quizName,
-                score,
-                totalQuestions,
-                correctAnswers
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId, fingerprint })
         });
-        console.log('✓ Result Saved');
-    } catch (err) {
-        console.error('Save Error:', err);
-    }
+        const data = await response.json();
+        if (response.status === 403) return { status: 'fingerprint_blocked', message: data.error };
+        return response.ok ? { status: 'success' } : { status: 'error' };
+    } catch (e) { return { status: 'error' }; }
 }
+
+/* -------------------------------------------------------------------------- */
+/* 6. نقطة الانطلاق الرئيسية                                                 */
+/* -------------------------------------------------------------------------- */
+
+document.addEventListener('DOMContentLoaded', async () => {
+    initThemeToggle();
+    FINGERPRINT_ID = await getFingerprint();
+
+    const localId = localStorage.getItem(STORAGE_KEY_ID);
+    const verification = await verifyStudent(localId);
+
+    if (verification.status === 'account_blocked') {
+        showError('الحساب محظور', 'تم إيقاف هذا الحساب. الرجاء التواصل مع الإدارة.');
+        return;
+    }
+    
+    if (verification.status === 'id_mismatch' || verification.status === 'new_user') {
+        localStorage.removeItem(STORAGE_KEY_ID);
+        const isRegistered = await registerStudent(FINGERPRINT_ID);
+        if (!isRegistered) return; 
+    }
+
+    const loginResult = await loginWithFingerprint(STUDENT_ID, FINGERPRINT_ID);
+    if (loginResult.status === 'fingerprint_blocked') {
+        showError('الجهاز محظور', loginResult.message);
+        return;
+    }
+
+    const subjectKey = getSubjectKey();
+    
+    if ($('subjects-grid')) {
+        initIndexPage();
+    } else if ($('quiz-body')) {
+        initQuizPage(subjectKey); 
+    } else if ($('summary-content-files')) {
+        initSummaryPage(subjectKey);
+    } else if ($('dashboard-content')) { 
+        initDashboardPage(); 
+    }
+});
+
+/* -------------------------------------------------------------------------- */
+/* 7. دوال إدارة الصفحات                                                     */
+/* -------------------------------------------------------------------------- */
 
 function initThemeToggle() {
     const btn = $('theme-toggle-btn');
     const saved = localStorage.getItem('theme') || 'dark';
     if (saved === 'light') document.body.classList.add('light-mode');
-    if (btn) {
-        btn.addEventListener('click', () => {
-            document.body.classList.toggle('light-mode');
-            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
-        });
-    }
+    if (btn) btn.addEventListener('click', () => {
+        document.body.classList.toggle('light-mode');
+        localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+    });
 }
-
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        initThemeToggle();
-        FINGERPRINT_ID = await getFingerprint();
-
-        const isVerified = await verifyExistingStudent();
-        if (!isVerified) {
-            const isRegistered = await registerStudent(FINGERPRINT_ID);
-            if (!isRegistered) return;
-        }
-
-        const subjectKey = getSubjectKey();
-        
-        if ($('subjects-grid')) {
-            await initIndexPage();
-        } else if ($('quiz-body')) {
-            await initQuizPage(subjectKey);
-        } else if ($('dashboard-content')) {
-            await initDashboardPage();
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
-});
 
 async function initIndexPage() {
     const grid = $('subjects-grid');
     if (!grid) return;
-    
     grid.innerHTML = '';
     
+    const logoEl = document.querySelector('.main-header .logo');
+    if(logoEl) logoEl.innerHTML = LOGO_SVG;
+    
+    const cards = [];
     for (const key in SUBJECTS) {
         const s = SUBJECTS[key];
         const card = document.createElement('div');
         card.className = 'subject-card';
+        card.dataset.subjectKey = key; 
         card.innerHTML = `
+            <div class="card-icon">${s.icon || '📘'}</div> 
             <h3 class="card-title">${s.title}</h3>
             <div class="card-actions">
-                <a href="quiz.html?subject=${key}" class="card-btn btn-quiz">🧠 الاختبارات</a>
+                <a href="quiz.html?subject=${encodeURIComponent(key)}" class="card-btn btn-quiz disabled" aria-disabled="true">🧠 الاختبارات</a>
+                <a href="summary.html?subject=${encodeURIComponent(key)}" class="card-btn btn-summary disabled" aria-disabled="true">📖 ملخص</a>
             </div>
         `;
         grid.appendChild(card);
+        cards.push({key, card});
+    }
+    
+    // FIX #3: التعامل مع فشل المواد بشكل فردي
+    for (const {key, card} of cards) {
+        await loadAndEnableCard(key, card);
+    }
+
+    const searchBar = $('search-bar');
+    if (searchBar) {
+        searchBar.addEventListener('input', (e) => {
+            const term = normalizeText(e.target.value);
+            let visibleCount = 0;
+            cards.forEach(({key, card}) => {
+                const title = normalizeText(SUBJECTS[key].title);
+                const vis = title.includes(term);
+                card.style.display = vis ? 'flex' : 'none';
+                if(vis) visibleCount++;
+            });
+            $('no-results-message').style.display = (visibleCount === 0) ? 'block' : 'none';
+        });
     }
 }
 
+async function loadAndEnableCard(key, cardElement) {
+    try {
+        const data = await loadSubjectData(key); 
+        if (data.hasQuiz) {
+            const quizBtn = cardElement.querySelector('.btn-quiz');
+            if(quizBtn) quizBtn.classList.remove('disabled');
+        }
+        if (data.summaryData && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0)) { 
+            const summaryBtn = cardElement.querySelector('.btn-summary');
+            if(summaryBtn) summaryBtn.classList.remove('disabled');
+        }
+    } catch (e) {}
+}
+
+async function initSummaryPage(subjectKey) {
+    const titleEl = $('summary-title');
+    const filesContentEl = $('summary-content-files');
+    const imagesContentEl = $('summary-content-images');
+    const fTab = $('btn-summary-files');
+    const iTab = $('btn-summary-images');
+
+    if (!SUBJECTS[subjectKey]) { titleEl.innerText = 'خطأ'; return; }
+    
+    try {
+        const res = await fetch(`data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`);
+        if (!res.ok) throw new Error('No summary');
+        const data = await res.json();
+
+        titleEl.innerText = data.title || SUBJECTS[subjectKey].title;
+        
+        if (data.files?.length) {
+            let filesHtml = '<ul class="file-download-list">';
+            for (const f of data.files) {
+                if(await fileExists(f.path)) {
+                    let icon = f.type==='pdf'?'📕':f.type==='doc'?'📘':'📄';
+                    filesHtml += `<li class="file-download-item"><a href="${f.path}" target="_blank" class="file-download-link"><span class="file-download-icon">${icon}</span><span class="file-download-name">${f.name}</span></a></li>`;
+                }
+            }
+            filesContentEl.innerHTML = filesHtml + '</ul>';
+        } else { filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات.</p>'; }
+
+        if (data.images?.length) {
+            let imgHtml = '<div class="gallery-grid">';
+            for (const img of data.images) {
+                if(await fileExists(img.path)) {
+                    imgHtml += `<div class="gallery-item"><img src="${img.path}" alt="صورة"><p>${img.caption||''}</p></div>`;
+                }
+            }
+            imagesContentEl.innerHTML = imgHtml + '</div>';
+            setupLightbox();
+        } else { imagesContentEl.innerHTML = '<p class="placeholder">لا توجد صور.</p>'; }
+
+        document.querySelector('.summary-tabs').style.display = 'flex';
+        fTab.addEventListener('click', () => {
+            filesContentEl.style.display = 'block'; imagesContentEl.style.display = 'none';
+            fTab.classList.add('active'); iTab.classList.remove('active');
+        });
+        iTab.addEventListener('click', () => {
+            filesContentEl.style.display = 'none'; imagesContentEl.style.display = 'block';
+            fTab.classList.remove('active'); iTab.classList.add('active');
+        });
+        fTab.click();
+
+    } catch (e) {
+        titleEl.innerText = 'الملخص غير متاح حالياً';
+        filesContentEl.innerHTML = '<p class="placeholder">لم يتم رفع ملف الملخص لهذه المادة بعد.</p>';
+    }
+}
+
+function setupLightbox() {
+    const modal = $('lightbox-modal');
+    const modalImg = $('lightbox-img');
+    if(!modal) return;
+    document.querySelectorAll('.gallery-item img').forEach(img => {
+        img.onclick = () => { modal.classList.add('show'); modalImg.src = img.src; };
+    });
+    $('lightbox-close').onclick = () => modal.classList.remove('show');
+    modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('show'); };
+}
+
+/* -------------------------------------------------------------------------- */
+/* 8. صفحة الاختبار ونظام المستويات (الذكي)                                   */
+/* -------------------------------------------------------------------------- */
+
 async function initQuizPage(subjectKey) {
+    if(!subjectKey || !SUBJECTS[subjectKey]) return;
+    
     const titleEl = $('quiz-title');
     const body = $('quiz-body');
-    
-    if (!SUBJECTS[subjectKey]) {
-        body.innerHTML = '<p>المادة غير موجودة</p>';
-        return;
-    }
+    const footer = $('quiz-footer');
     
     titleEl.innerText = SUBJECTS[subjectKey].title;
-    
+    footer.style.display = 'none';
+
     let pastResults = [];
     try {
-        if (CURRENT_STUDENT_ID) {
-            const res = await apiRequest(`/students/${CURRENT_STUDENT_ID}/results`);
-            if (res && res.ok) pastResults = await res.json();
-        }
-    } catch (e) {
-        console.error('Results Error:', e);
-    }
+        // FIX #7: استخدام المعرف في الرابط بدلاً من التوكن
+        const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results?t=${Date.now()}`);
+        pastResults = await res.json();
+    } catch (e) {}
 
-    let html = '<div style="display:grid; gap:1rem;">';
+    let html = '<div class="levels-grid" style="display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));">';
     
+    // FIX #4: توحيد نص عنوان المادة
+    const currentSubjectNorm = normalizeText(SUBJECTS[subjectKey].title);
+
     LEVEL_CONFIG.forEach((lvl, idx) => {
         let locked = false;
-        
         if (idx > 0) {
             const prevLvl = LEVEL_CONFIG[idx - 1];
-            const prevAttempts = pastResults.filter(r => 
-                r.quizname && r.quizname.includes(prevLvl.titleSuffix)
-            );
-            const bestPrevScore = prevAttempts.length > 0 
-                ? Math.max(...prevAttempts.map(r => (r.correctanswers / r.totalquestions) * 100))
-                : 0;
+            // FIX #4: المقارنة الذكية للنصوص
+            const prevAttempts = pastResults.filter(r => {
+                if(!r.quizName) return false;
+                const rNameNorm = normalizeText(r.quizName);
+                const levelSuffixNorm = normalizeText(prevLvl.titleSuffix);
+                return rNameNorm.includes(currentSubjectNorm) && rNameNorm.includes(levelSuffixNorm);
+            });
             
-            if (bestPrevScore < prevLvl.requiredScore) {
-                locked = true;
-            }
+            const passed = prevAttempts.some(r => {
+                const percent = (r.correctAnswers / r.totalQuestions) * 100;
+                return percent >= prevLvl.requiredScore;
+            });
+            if (!passed) locked = true;
         }
 
-        const myAttempts = pastResults.filter(r => 
-            r.quizname && r.quizname.includes(lvl.titleSuffix)
-        );
-        const bestScore = myAttempts.length 
-            ? Math.max(...myAttempts.map(r => Math.round((r.correctanswers / r.totalquestions) * 100)))
-            : 0;
+        const myAttempts = pastResults.filter(r => {
+            if(!r.quizName) return false;
+            const rNameNorm = normalizeText(r.quizName);
+            const levelSuffixNorm = normalizeText(lvl.titleSuffix);
+            return rNameNorm.includes(currentSubjectNorm) && rNameNorm.includes(levelSuffixNorm);
+        });
 
-        const btnStyle = locked 
-            ? 'background:#999; cursor:not-allowed;' 
-            : 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white;';
-        
-        const btnText = locked ? `🔒 يجب تحقيق ${prevLvl.requiredScore}%` : '🚀 ابدأ';
+        const bestScore = myAttempts.length ? Math.max(...myAttempts.map(r => Math.round((r.correctAnswers/r.totalQuestions)*100))) : 0;
+
+        const btnClass = locked ? 'locked-btn' : 'start';
+        const btnStyle = locked ? 'background:#ccc; cursor:not-allowed;' : 'background:var(--primary-color-gradient); color:white;';
+        const btnText = locked ? `🔒 مغلق (يجب تحقيق ${LEVEL_CONFIG[idx-1]?.requiredScore}% في السابق)` : '🚀 ابدأ الاختبار';
         const onClick = locked ? '' : `loadLevelFile('${subjectKey}', ${idx})`;
-        
+        const badge = bestScore > 0 ? `<div style="color:${bestScore>=lvl.requiredScore?'var(--color-correct)':'var(--color-pass)'};margin-bottom:10px;font-weight:bold;">أفضل درجة: ${bestScore}%</div>` : '';
+
         html += `
-            <div class="subject-card">
-                <h3>${lvl.name}</h3>
-                ${bestScore > 0 ? `<p style="color:green;">⭐ أفضل درجة: ${bestScore}%</p>` : ''}
-                <button style="${btnStyle} width:100%; padding:1rem; border:none; border-radius:8px;" onclick="${onClick}" ${locked ? 'disabled' : ''}>
-                    ${btnText}
-                </button>
+            <div class="level-card subject-card" style="${locked?'opacity:0.7':''}">
+                <div class="level-icon" style="font-size:2rem;margin-bottom:10px;">${locked?'🔒':'🔓'}</div>
+                <h3 class="level-title">${lvl.name}</h3>
+                ${badge}
+                <button class="card-btn" style="${btnStyle}; width:100%;" onclick="${onClick}">${btnText}</button>
             </div>
         `;
     });
@@ -311,95 +564,112 @@ async function initQuizPage(subjectKey) {
 
 window.loadLevelFile = async (subjectKey, levelIndex) => {
     const config = LEVEL_CONFIG[levelIndex];
-    const url = `data_${subjectKey}/data_${subjectKey}${config.suffix}`;
+    const fileName = `data_${subjectKey}${config.suffix}`;
+    const url = `data_${subjectKey}/${fileName}?v=${Date.now()}`;
 
-    const body = $('quiz-body');
-    body.innerHTML = '<p>جاري التحميل...</p>';
+    $('quiz-body').innerHTML = '<p style="text-align:center; padding:3rem;">جاري تحميل الأسئلة...</p>';
 
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error('File not found');
-        
         const quizData = await res.json();
-        if (!quizData.questions || quizData.questions.length === 0) {
-            throw new Error('No questions');
-        }
         
         const fullTitle = `${SUBJECTS[subjectKey].title} - ${config.titleSuffix}`;
         runQuizEngine(quizData.questions, fullTitle);
-        
     } catch (e) {
-        alert('ملف الأسئلة غير متوفر');
-        initQuizPage(subjectKey);
+        alert('عذراً، ملف أسئلة هذا المستوى غير متوفر حالياً.');
+        initQuizPage(subjectKey); 
     }
 };
 
 function runQuizEngine(questions, title) {
     let currentIdx = 0;
-    let totalScore = 0;
-    let correctCount = 0;
+    let totalScore = 0; 
+    let correctCount = 0; 
+    let incorrectList = []; 
+    let questionStartTime = 0;
 
     const titleEl = $('quiz-title');
     titleEl.innerText = title;
 
-    const questionsShuffled = shuffleArray(questions);
+    let questionsShuffled = [...questions];
+    for (let i = questionsShuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questionsShuffled[i], questionsShuffled[j]] = [questionsShuffled[j], questionsShuffled[i]];
+    }
 
     $('quiz-body').innerHTML = `
-        <h3 id="question-text"></h3>
-        <div id="opts"></div>
-        <p id="feedback"></p>
+        <h3 id="question-text" style="margin-bottom:20px;"></h3>
+        <div id="opts" class="options-container"></div>
+        <p id="feedback" class="feedback"></p>
     `;
-    
     $('quiz-footer').style.display = 'block';
     const nextBtn = $('next-btn');
+    nextBtn.style.display = 'block';
 
     function loadQuestion() {
         const q = questionsShuffled[currentIdx];
         $('question-text').innerText = q.question;
         $('question-counter').innerText = `السؤال ${currentIdx + 1} / ${questionsShuffled.length}`;
         $('progress-bar').style.width = `${((currentIdx + 1) / questionsShuffled.length) * 100}%`;
-        
         $('feedback').innerText = '';
+        $('feedback').className = 'feedback'; 
         nextBtn.disabled = true;
-        nextBtn.innerText = (currentIdx === questionsShuffled.length - 1) ? 'عرض النتيجة' : 'التالي';
+        nextBtn.innerText = (currentIdx === questionsShuffled.length - 1) ? 'عرض النتيجة' : 'السؤال التالي ←';
         
+        questionStartTime = Date.now();
         const optsDiv = $('opts');
         optsDiv.innerHTML = '';
+        optsDiv.style.display = 'flex';
 
         const options = q.type === 'tf' ? ['صح', 'خطأ'] : q.options;
         
         options.forEach((txt, i) => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
-            btn.innerText = txt;
-            btn.style.cssText = 'width:100%; padding:1rem; margin:0.5rem 0; border:2px solid #ddd; border-radius:8px; cursor:pointer;';
+            btn.innerHTML = `<span class="option-text">${txt}</span><span class="icon"></span>`;
             
             let isCorrect = false;
             if (q.type === 'tf') {
-                isCorrect = (i === 0) === (String(q.answer).toLowerCase() === 'true');
+                const trueAns = String(q.answer).toLowerCase() === 'true'; 
+                isCorrect = (i === 0) === trueAns; 
             } else {
                 isCorrect = (i === q.answer);
             }
 
-            btn.onclick = () => {
-                Array.from(optsDiv.children).forEach(b => b.disabled = true);
-                
-                if (isCorrect) {
-                    correctCount++;
-                    totalScore += 10;
-                    btn.style.background = '#2ecc71';
-                    btn.style.color = 'white';
-                    $('feedback').innerText = '✅ صحيح';
-                } else {
-                    btn.style.background = '#e74c3c';
-                    btn.style.color = 'white';
-                    $('feedback').innerText = '❌ خطأ';
-                }
-                
-                nextBtn.disabled = false;
-            };
+            btn.onclick = () => checkAnswer(btn, isCorrect);
             optsDiv.appendChild(btn);
         });
+    }
+
+    function checkAnswer(btn, isCorrect) {
+        document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+        const timeTaken = (Date.now() - questionStartTime) / 1000;
+        
+        if (isCorrect) {
+            correctCount++;
+            let pts = 10;
+            if (timeTaken < 5) pts += 5;
+            totalScore += pts;
+            btn.classList.add('correct');
+            $('feedback').innerText = `✅ إجابة صحيحة! (+${pts})`;
+            $('feedback').classList.add('correct');
+        } else {
+            btn.classList.add('incorrect');
+            $('feedback').innerText = '❌ إجابة خاطئة';
+            $('feedback').classList.add('incorrect');
+            incorrectList.push(questionsShuffled[currentIdx]);
+            
+            const opts = document.querySelectorAll('.option-btn');
+            const q = questionsShuffled[currentIdx];
+             if (q.type === 'tf') {
+                 const trueAns = String(q.answer).toLowerCase() === 'true';
+                 opts[trueAns ? 0 : 1].classList.add('correct');
+             } else {
+                 opts[q.answer].classList.add('correct');
+             }
+        }
+        nextBtn.disabled = false;
     }
 
     nextBtn.onclick = () => {
@@ -417,71 +687,74 @@ function runQuizEngine(questions, title) {
         const resDiv = $('results-container');
         resDiv.style.display = 'flex';
 
-        saveQuizResult(title, totalScore, questions.length, correctCount);
+        if (!title.includes('مراجعة')) {
+            saveQuizResult(title, totalScore, questions.length, correctCount);
+        }
 
         const percent = Math.round((correctCount / questions.length) * 100);
+        let reviewBtn = incorrectList.length ? `<button id="rev-btn" class="card-btn" style="background:var(--color-incorrect);color:white;">🔁 مراجعة الأخطاء</button>` : '';
 
         resDiv.innerHTML = `
-            <h2>${percent}%</h2>
+            <div class="results-chart" style="--percentage-value:${percent*3.6}deg"><span class="percentage-text">${percent}%</span></div>
             <h3>${title}</h3>
-            <p>${totalScore} نقطة</p>
-            <p>${correctCount} من ${questions.length}</p>
-            <button onclick="location.reload()" style="padding:1rem 2rem; background:#667eea; color:white; border:none; border-radius:8px; cursor:pointer;">إعادة</button>
-            <a href="index.html" style="padding:1rem 2rem; background:#666; color:white; border:none; border-radius:8px; text-decoration:none; display:inline-block; margin-top:1rem;">الرئيسية</a>
+            <h2 style="color:var(--primary-color)">${totalScore} نقطة</h2>
+            <p>أجبت ${correctCount} من ${questions.length} بشكل صحيح.</p>
+            <div class="results-actions">
+                ${reviewBtn}
+                <a href="index.html" class="card-btn btn-summary">القائمة الرئيسية</a>
+                <button onclick="location.reload()" class="next-btn">إعادة الاختبار</button>
+            </div>
         `;
+
+        if(incorrectList.length) {
+            $('rev-btn').onclick = () => {
+                resDiv.style.display = 'none';
+                runQuizEngine(incorrectList, `${title} (مراجعة)`);
+            };
+        }
     }
 
     loadQuestion();
 }
 
+/* -------------------------------------------------------------------------- */
+/* 9. لوحة التقدم (Fixed for Bug #7)                                         */
+/* -------------------------------------------------------------------------- */
+
 async function initDashboardPage() {
     const container = $('dashboard-content');
-    
-    if (!CURRENT_STUDENT_ID) {
-        container.innerHTML = '<p>الرجاء تسجيل الدخول أولاً.</p>';
-        return;
-    }
-    
-    container.innerHTML = '<p>جاري التحميل...</p>';
+    if (!STUDENT_ID) { container.innerHTML = '<p class="dashboard-empty-state">الرجاء تسجيل الدخول.</p>'; return; }
     
     try {
+        // FIX #7: استخدام المعرف في الروابط
         const [stats, results] = await Promise.all([
-            apiRequest(`/students/${CURRENT_STUDENT_ID}/stats`).then(r => r.json()),
-            apiRequest(`/students/${CURRENT_STUDENT_ID}/results`).then(r => r.json())
+            fetch(`${API_URL}/students/${STUDENT_ID}/stats`).then(r=>r.json()),
+            fetch(`${API_URL}/students/${STUDENT_ID}/results?t=${Date.now()}`).then(r=>r.json()) 
         ]);
 
+        if (stats.error) throw new Error();
+
         let html = `
-            <div class="dashboard-header">
-                <h2>مرحباً ${USER_DATA?.name || 'الطالب'} 👋</h2>
-            </div>
-            <div class="dashboard-summary-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1rem; margin-bottom:2rem;">
-                <div class="summary-box">
-                    <p>الاختبارات</p>
-                    <h2>${stats.totalQuizzes}</h2>
-                </div>
-                <div class="summary-box">
-                    <p>المتوسط</p>
-                    <h2>${stats.averageScore}%</h2>
-                </div>
-                <div class="summary-box">
-                    <p>الأفضل</p>
-                    <h2>${stats.bestScore}%</h2>
-                </div>
-            </div>
-        `;
+            <div class="dashboard-summary-grid">
+                <div class="summary-box"><p class="summary-box-label">الاختبارات</p><p class="summary-box-value">${stats.totalQuizzes}</p></div>
+                <div class="summary-box"><p class="summary-box-label">المتوسط</p><p class="summary-box-value ${stats.averageScore>=50?'correct':'incorrect'}">${stats.averageScore}</p></div>
+                <div class="summary-box"><p class="summary-box-label">الأفضل</p><p class="summary-box-value level-excellent">${stats.bestScore}</p></div>
+            </div><div class="results-divider"></div>`;
 
-        if (results.length > 0) {
-            html += '<h3>السجل:</h3><ul>';
-            results.forEach(r => {
-                const percent = Math.round((r.correctanswers / r.totalquestions) * 100);
-                html += `<li>${r.quizname} - ${r.score} نقطة (${percent}%)</li>`;
+        const byQuiz = {};
+        results.forEach(r => { 
+            const qName = r.quizName || 'اختبار غير معروف';
+            if(!byQuiz[qName]) byQuiz[qName]=[]; 
+            byQuiz[qName].push(r); 
+        });
+
+        for (const q in byQuiz) {
+            html += `<div class="subject-history-card"><h3>${q}</h3><ul class="history-list">`;
+            byQuiz[q].forEach(r => {
+                html += `<li class="history-item"><span class="score">${r.score} نقطة</span><span class="score-details">(${r.correctAnswers}/${r.totalQuestions})</span><span class="history-date">${new Date(r.completedAt).toLocaleDateString('ar-EG')}</span></li>`;
             });
-            html += '</ul>';
+            html += '</ul></div>';
         }
-
-        container.innerHTML = html;
-        
-    } catch (e) {
-        container.innerHTML = '<p>فشل تحميل البيانات</p>';
-    }
+        container.innerHTML = results.length ? html : '<p class="dashboard-empty-state">لا توجد اختبارات.</p>';
+    } catch (e) { container.innerHTML = '<p class="dashboard-empty-state">فشل التحميل.</p>'; }
 }
