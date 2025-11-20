@@ -1,13 +1,11 @@
 /*
  * =================================================================================
  * APP.JS - Tawal Academy Client Logic
- * Version: 14.2.0 (Multi-Level Support & Full Security)
+ * Version: 14.2.1 (Hotfix: Null Safety Check)
  * =================================================================================
- * * الميزات الجديدة:
- * 1. دعم كامل لثلاثة مستويات (quiz_1, quiz_2, quiz_3).
- * 2. نظام قفل المستويات (Levels Locking System).
- * 3. إصلاح مسارات الملفات لتجنب أخطاء 404.
- * 4. دمج كافة ميزات الحماية (Fingerprint & Blocking) من النسخة السابقة.
+ * * الإصلاحات في هذا الإصدار:
+ * 1. إصلاح مشكلة Crash عند وجود نتائج اختبارات سابقة بدون اسم (Fix undefined quizName).
+ * 2. إضافة فحص أمان قبل قراءة includes لمنع الشاشة من التوقف عند "جاري التحميل".
  * =================================================================================
  */
 
@@ -28,11 +26,11 @@ let FINGERPRINT_ID = null;
 // الإعدادات الافتراضية
 const DEFAULT_SUBJECT = 'gis_networks';
 
-// إعدادات المستويات (هام جداً: يجب أن تطابق أسماء ملفاتك)
+// إعدادات المستويات
 const LEVEL_CONFIG = [
-    { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 0 },     // مفتوح دائماً
-    { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 },    // يتطلب 80% في م1
-    { id: 3, suffix: '_quiz_3.json', titleSuffix: 'المستوى 3', name: 'المستوى الثالث (متقدم)', requiredScore: 85 }     // يتطلب 85% في م2
+    { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 0 },
+    { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 },
+    { id: 3, suffix: '_quiz_3.json', titleSuffix: 'المستوى 3', name: 'المستوى الثالث (متقدم)', requiredScore: 85 }
 ];
 
 const LOGO_SVG = `
@@ -136,14 +134,12 @@ function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     .catch(err => console.error('Save Error:', err));
 }
 
-// دالة التحميل المعدلة: تبحث عن المستوى الأول بدلاً من الملف العام
 function loadSubjectData(subjectKey) {
     return new Promise((resolve, reject) => {
         if (!subjectKey || !SUBJECTS[subjectKey]) {
             reject(new Error('المادة غير صالحة'));
             return;
         }
-        // التغيير هنا: البحث عن quiz_1 بدلاً من quiz
         const qUrl = `data_${subjectKey}/data_${subjectKey}_quiz_1.json?v=${Date.now()}`;
         const sUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
 
@@ -153,7 +149,7 @@ function loadSubjectData(subjectKey) {
         ])
         .then(results => {
             resolve({ 
-                hasQuiz: !!results[0], // True إذا وجدنا المستوى الأول
+                hasQuiz: !!results[0], 
                 quizFirstLevel: results[0],
                 summaryData: results[1] 
             });
@@ -244,11 +240,6 @@ async function loginWithFingerprint(studentId, fingerprint) {
     } catch (e) { return { status: 'error' }; }
 }
 
-function checkAccessPermission() {
-    // سؤال الأمان في الصفحة الرئيسية (اختياري)
-    return true; 
-}
-
 /* -------------------------------------------------------------------------- */
 /* 6. نقطة الانطلاق الرئيسية                                                 */
 /* -------------------------------------------------------------------------- */
@@ -281,7 +272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if ($('subjects-grid')) {
         initIndexPage();
     } else if ($('quiz-body')) {
-        initQuizPage(subjectKey); // استدعاء دالة المستويات الجديدة
+        initQuizPage(subjectKey); 
     } else if ($('summary-content-files')) {
         initSummaryPage(subjectKey);
     } else if ($('dashboard-content')) { 
@@ -303,7 +294,6 @@ function initThemeToggle() {
     });
 }
 
-// --- الصفحة الرئيسية ---
 async function initIndexPage() {
     const grid = $('subjects-grid');
     if (!grid) return;
@@ -350,12 +340,10 @@ async function initIndexPage() {
 async function loadAndEnableCard(key, cardElement) {
     try {
         const data = await loadSubjectData(key); 
-        // تفعيل زر الاختبار إذا وجدنا ملف المستوى الأول (حل مشكلة 404)
         if (data.hasQuiz) {
             const quizBtn = cardElement.querySelector('.btn-quiz');
             if(quizBtn) quizBtn.classList.remove('disabled');
         }
-        // تفعيل زر الملخص
         if (data.summaryData && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0)) { 
             const summaryBtn = cardElement.querySelector('.btn-summary');
             if(summaryBtn) summaryBtn.classList.remove('disabled');
@@ -363,7 +351,6 @@ async function loadAndEnableCard(key, cardElement) {
     } catch (e) {}
 }
 
-// --- صفحة الملخص ---
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     const filesContentEl = $('summary-content-files');
@@ -431,10 +418,9 @@ function setupLightbox() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 8. صفحة الاختبار ونظام المستويات (Quiz & Levels System)                   */
+/* 8. صفحة الاختبار ونظام المستويات                                           */
 /* -------------------------------------------------------------------------- */
 
-// تهيئة صفحة الاختبار: عرض المستويات الثلاثة
 async function initQuizPage(subjectKey) {
     if(!subjectKey || !SUBJECTS[subjectKey]) return;
     
@@ -445,7 +431,6 @@ async function initQuizPage(subjectKey) {
     titleEl.innerText = SUBJECTS[subjectKey].title;
     footer.style.display = 'none';
 
-    // جلب نتائج الطالب للتحقق من القفل
     let pastResults = [];
     try {
         const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results`);
@@ -456,15 +441,15 @@ async function initQuizPage(subjectKey) {
     
     LEVEL_CONFIG.forEach((lvl, idx) => {
         let locked = false;
-        // المنطق: إذا لم نكن في المستوى الأول، تحقق من نجاح المستوى السابق
         if (idx > 0) {
             const prevLvl = LEVEL_CONFIG[idx - 1];
-            // البحث عن نتائج المادة الحالية + المستوى السابق
+            // FIX: أضفنا فحص وجود quizName لتجنب الخطأ
             const prevAttempts = pastResults.filter(r => 
+                r.quizName && 
                 r.quizName.includes(SUBJECTS[subjectKey].title) && 
                 r.quizName.includes(prevLvl.titleSuffix)
             );
-            // هل يوجد أي محاولة ناجحة؟
+            
             const passed = prevAttempts.some(r => {
                 const percent = (r.correctAnswers / r.totalQuestions) * 100;
                 return percent >= prevLvl.requiredScore;
@@ -472,8 +457,8 @@ async function initQuizPage(subjectKey) {
             if (!passed) locked = true;
         }
 
-        // حساب أفضل درجة في هذا المستوى لعرضها
         const myAttempts = pastResults.filter(r => 
+            r.quizName && // Fix here too
             r.quizName.includes(SUBJECTS[subjectKey].title) && 
             r.quizName.includes(lvl.titleSuffix)
         );
@@ -498,10 +483,9 @@ async function initQuizPage(subjectKey) {
     body.innerHTML = html + '</div>';
 }
 
-// تحميل ملف المستوى المختار وتشغيل المحرك
 window.loadLevelFile = async (subjectKey, levelIndex) => {
     const config = LEVEL_CONFIG[levelIndex];
-    const fileName = `data_${subjectKey}${config.suffix}`; // e.g. data_gis_networks_quiz_1.json
+    const fileName = `data_${subjectKey}${config.suffix}`;
     const url = `data_${subjectKey}/${fileName}?v=${Date.now()}`;
 
     $('quiz-body').innerHTML = '<p style="text-align:center; padding:3rem;">جاري تحميل الأسئلة...</p>';
@@ -511,7 +495,6 @@ window.loadLevelFile = async (subjectKey, levelIndex) => {
         if (!res.ok) throw new Error('File not found');
         const quizData = await res.json();
         
-        // دمج اسم المادة مع اسم المستوى لعنوان الاختبار
         const fullTitle = `${SUBJECTS[subjectKey].title} - ${config.titleSuffix}`;
         runQuizEngine(quizData.questions, fullTitle);
     } catch (e) {
@@ -520,7 +503,6 @@ window.loadLevelFile = async (subjectKey, levelIndex) => {
     }
 };
 
-// محرك الاختبارات (نفس المنطق القديم مع تحسينات بسيطة)
 function runQuizEngine(questions, title) {
     let currentIdx = 0;
     let totalScore = 0; 
@@ -533,7 +515,6 @@ function runQuizEngine(questions, title) {
 
     let questionsShuffled = [...questions].sort(() => Math.random() - 0.5);
 
-    // إعداد الواجهة
     $('quiz-body').innerHTML = `
         <h3 id="question-text" style="margin-bottom:20px;"></h3>
         <div id="opts" class="options-container"></div>
@@ -566,9 +547,8 @@ function runQuizEngine(questions, title) {
             
             let isCorrect = false;
             if (q.type === 'tf') {
-                // التأكد من تحويل القيمة النصية إلى بوليان
                 const trueAns = String(q.answer).toLowerCase() === 'true'; 
-                isCorrect = (i === 0) === trueAns; // 0 هو زر "صح"
+                isCorrect = (i === 0) === trueAns; 
             } else {
                 isCorrect = (i === q.answer);
             }
@@ -584,22 +564,18 @@ function runQuizEngine(questions, title) {
         
         if (isCorrect) {
             correctCount++;
-            let pts = 10; // نقاط أساسية
-            if (timeTaken < 5) pts += 5; // بونص سرعة
+            let pts = 10;
+            if (timeTaken < 5) pts += 5;
             totalScore += pts;
-            
             btn.classList.add('correct');
             $('feedback').innerText = `✅ إجابة صحيحة! (+${pts})`;
             $('feedback').classList.add('correct');
-            $('feedback').classList.remove('incorrect');
         } else {
             btn.classList.add('incorrect');
             $('feedback').innerText = '❌ إجابة خاطئة';
             $('feedback').classList.add('incorrect');
-            $('feedback').classList.remove('correct');
             incorrectList.push(questionsShuffled[currentIdx]);
             
-            // تلوين الإجابة الصحيحة
             const opts = document.querySelectorAll('.option-btn');
             const q = questionsShuffled[currentIdx];
              if (q.type === 'tf') {
@@ -627,7 +603,6 @@ function runQuizEngine(questions, title) {
         const resDiv = $('results-container');
         resDiv.style.display = 'flex';
 
-        // حفظ النتيجة فقط إذا لم تكن مراجعة
         if (!title.includes('مراجعة')) {
             saveQuizResult(title, totalScore, questions.length, correctCount);
         }
@@ -682,7 +657,12 @@ async function initDashboardPage() {
             </div><div class="results-divider"></div>`;
 
         const byQuiz = {};
-        results.forEach(r => { if(!byQuiz[r.quizName]) byQuiz[r.quizName]=[]; byQuiz[r.quizName].push(r); });
+        results.forEach(r => { 
+            // FIX: تأمين اسم الاختبار
+            const qName = r.quizName || 'اختبار غير معروف';
+            if(!byQuiz[qName]) byQuiz[qName]=[]; 
+            byQuiz[qName].push(r); 
+        });
 
         for (const q in byQuiz) {
             html += `<div class="subject-history-card"><h3>${q}</h3><ul class="history-list">`;
