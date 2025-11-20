@@ -1,28 +1,11 @@
 /*
  * =================================================================================
  * APP.JS - Tawal Academy Client Logic
- * Version: 13.0.0 (Final Comprehensive Production Build)
+ * Version: 13.1.0 (Final Fixed Full Version)
  * =================================================================================
- * * هذا الملف هو المحرك الرئيسي للواجهة الأمامية (Frontend).
- * * يحتوي على كافة العمليات المنطقية لربط الطالب بالخادم وعرض المحتوى.
- *
- * 📋 جدول المحتويات:
- * 1. إعدادات الاتصال والمتغيرات العامة (Configuration).
- * 2. قائمة المواد الدراسية (Subjects Database).
- * 3. دوال المساعدة والتحقق (Helpers & Validation).
- * 4. دوال الاتصال بالخادم (Backend API Calls).
- * 5. نظام المصادقة والحماية (Authentication & Security).
- * - تسجيل ذكي (Smart Registration).
- * - بصمة الجهاز (Fingerprinting).
- * - الحظر (Blocking).
- * 6. نقطة الانطلاق الرئيسية (Main Execution).
- * 7. إدارة الصفحات (Page Controllers):
- * - الصفحة الرئيسية (Index).
- * - صفحة الملخص (Summary).
- * - لوحة التقدم (Dashboard).
- * 8. نظام الاختبارات والمستويات (Quiz & Levels Engine).
- * - دعم الملفات المنفصلة (Quiz 1, 2, 3).
- * - شرط فتح المستوى (80%).
+ * * هذا الملف يحتوي على المنطق الكامل للواجهة الأمامية.
+ * * تم إصلاح خطأ timeTakenInSeconds.
+ * * تم دمج كافة الميزات (المستويات، الحظر، البصمة، التسجيل الذكي).
  * =================================================================================
  */
 
@@ -30,48 +13,40 @@
 /* 1. إعدادات الاتصال والمتغيرات العامة                                      */
 /* -------------------------------------------------------------------------- */
 
-// رابط الخادم (Backend API URL)
+// رابط الخادم (Backend)
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-// مفاتيح التخزين المحلي (Local Storage Keys)
-// تم تحديث الإصدار لـ v4 لإجبار المتصفحات على اعتبار المستخدمين "جدد" وإعادة التسجيل
+// مفاتيح التخزين (v4 لإجبار التحديث)
 const STORAGE_KEY_ID = 'tawal_studentId_v4'; 
 const STORAGE_KEY_NAME = 'tawal_studentName_v4';
 
-// متغيرات الجلسة الحالية (Session Variables)
+// متغيرات الجلسة
 let STUDENT_ID = localStorage.getItem(STORAGE_KEY_ID);
 let FINGERPRINT_ID = null;
 
-// المفتاح الافتراضي للمواد
+// إعدادات أخرى
+const PROGRESS_KEY = 'tawalAcademyProgress_v1';
 const DEFAULT_SUBJECT = 'gis_networks';
 
-// إعدادات المستويات (للتعامل مع الملفات المنفصلة)
-// هذا الجزء يحدد أسماء الملفات وعناوين المستويات وشرط النجاح
+// متغيرات الاختبار العامة (Global Quiz Variables)
+// - استخدام متغيرات عامة لحل مشاكل النطاق (Scope)
+let currentQuestions = [];
+let currentQuestionIndex = 0;
+let currentScore = 0;
+let currentCorrectCount = 0;
+let incorrectQuestions = [];
+let quizStartTime = 0;      // وقت بدء الاختبار ككل
+let questionStartTime = 0;  // وقت بدء السؤال الحالي
+let currentQuizTitle = "";
+
+// إعدادات المستويات (Level Config)
 const LEVEL_CONFIG = [
-    { 
-        id: 1, 
-        suffix: '_quiz_1.json', 
-        titleSuffix: 'المستوى 1', 
-        name: 'المستوى الأول (مبتدئ)', 
-        requiredScore: 0 
-    },
-    { 
-        id: 2, 
-        suffix: '_quiz_2.json', 
-        titleSuffix: 'المستوى 2', 
-        name: 'المستوى الثاني (متوسط)', 
-        requiredScore: 80 
-    },
-    { 
-        id: 3, 
-        suffix: '_quiz_3.json', 
-        titleSuffix: 'المستوى 3', 
-        name: 'المستوى الثالث (متقدم)', 
-        requiredScore: 80 
-    }
+    { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 0 },
+    { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 },
+    { id: 3, suffix: '_quiz_3.json', titleSuffix: 'المستوى 3', name: 'المستوى الثالث (متقدم)', requiredScore: 80 }
 ];
 
-// شعار الأكاديمية (SVG Code)
+// شعار الأكاديمية
 const LOGO_SVG = `
     <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
         <path d="M40 8H8c-2.21 0-4 1.79-4 4v24c0 2.21 1.79 4 4 4h32c2.21 0 4-1.79 4-4V12c0-2.21-1.79-4-4-4z" fill="currentColor"/>
@@ -81,7 +56,7 @@ const LOGO_SVG = `
 `;
 
 /* -------------------------------------------------------------------------- */
-/* 2. قائمة المواد الدراسية (Subjects List)                                  */
+/* 2. قائمة المواد الدراسية (Subjects)                                       */
 /* -------------------------------------------------------------------------- */
 
 const SUBJECTS = {
@@ -116,15 +91,11 @@ const SUBJECTS = {
 };
 
 /* -------------------------------------------------------------------------- */
-/* 3. دوال المساعدة والتحقق (Helpers & Validation)                           */
+/* 3. دوال المساعدة والتحقق (Helpers)                                        */
 /* -------------------------------------------------------------------------- */
 
-// دالة لاختصار الوصول للعناصر عبر ID
-function $(id) {
-    return document.getElementById(id);
-}
+function $(id) { return document.getElementById(id); }
 
-// دالة للحصول على مفتاح المادة الحالية من الرابط
 function getSubjectKey() {
     try {
         const params = new URLSearchParams(window.location.search);
@@ -134,30 +105,30 @@ function getSubjectKey() {
     }
 }
 
-// دالة التحقق من صحة الاسم (مرن: يقبل 3 حروف فأكثر، عربي أو إنجليزي)
+// التحقق من صحة الاسم (مرن: 3 حروف فأكثر)
 function isValidName(name) {
     const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/;
     return nameRegex.test(name.trim());
 }
 
-// دالة التحقق من صحة البريد الإلكتروني
+// التحقق من الإيميل
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email.trim());
 }
 
-// دالة للتحقق من وجود ملف على الخادم قبل محاولة عرضه
+// التحقق من وجود الملفات
 async function fileExists(url) {
     try {
         const response = await fetch(url, { method: 'HEAD' });
         return response.ok;
     } catch (e) {
-        console.warn(`File check failed for ${url}`);
+        // تجاهل الخطأ (الملف غير موجود)
         return false;
     }
 }
 
-// دالة لإخفاء المحتوى وعرض رسالة (للحظر أو الأخطاء)
+// إخفاء المحتوى عند الحظر
 function hideContent(title, message) {
     const quizContainer = document.querySelector('.quiz-container');
     const mainContainer = document.querySelector('.main-container');
@@ -184,10 +155,9 @@ function hideContent(title, message) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. دوال الاتصال بالخادم (Backend API Calls)                               */
+/* 4. دوال الاتصال بالخادم (API Calls)                                      */
 /* -------------------------------------------------------------------------- */
 
-// تسجيل نشاط المستخدم
 function logActivity(activityType, subjectName = null) {
     if (!STUDENT_ID) return; 
     fetch(`${API_URL}/log-activity`, {
@@ -201,16 +171,15 @@ function logActivity(activityType, subjectName = null) {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.id) console.log(`✓ تم تسجيل النشاط: ${activityType}`);
+        // نجاح التسجيل (صامت)
     })
     .catch(err => console.error('فشل تسجيل النشاط:', err));
 }
 
-// حفظ نتيجة الاختبار
 function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     if (!STUDENT_ID) return;
     
-    // تنظيف الاسم من المسافات الزائدة
+    // تنظيف الاسم
     const cleanQuizName = quizName.trim();
     
     fetch(`${API_URL}/quiz-results`, {
@@ -225,11 +194,10 @@ function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
         })
     })
     .then(res => res.json())
-    .then(data => console.log('✓ تم حفظ النتيجة بنجاح:', cleanQuizName))
-    .catch(err => console.error('خطأ في حفظ النتيجة:', err));
+    .then(data => console.log('✓ تم حفظ النتيجة:', cleanQuizName))
+    .catch(err => console.error('خطأ حفظ النتيجة:', err));
 }
 
-// تحميل بيانات المادة (JSON) مع منع الكاش
 function loadSubjectData(subjectKey) {
     return new Promise((resolve, reject) => {
         if (!subjectKey || !SUBJECTS[subjectKey]) {
@@ -251,34 +219,30 @@ function loadSubjectData(subjectKey) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 5. نظام المصادقة والحماية (Authentication System)                         */
+/* 5. نظام المصادقة (Auth)                                                  */
 /* -------------------------------------------------------------------------- */
 
-// الحصول على بصمة الجهاز الفريدة
 async function getFingerprint() {
     try {
         const fp = await FingerprintJS.load();
         const result = await fp.get();
         return result.visitorId;
     } catch (err) {
-        console.error('فشل الحصول على بصمة الجهاز:', err);
+        console.error('فشل جلب البصمة:', err);
         return null;
     }
 }
 
-// دالة تسجيل الطالب الجديد
+// التسجيل الذكي
 async function registerStudent(fingerprint) {
     let name = prompt('أهلاً بك في منصة Tawal Academy!\n\nالرجاء كتابة اسمك:');
     
-    // التحقق من الاسم
     while (!name || !isValidName(name)) {
         if (name === null) return false; 
         name = prompt('الرجاء كتابة اسمك (حروف فقط):');
     }
 
     let email = prompt('الرجاء كتابة البريد الإلكتروني:');
-    
-    // التحقق من البريد
     while (!email || !isValidEmail(email)) {
         if (email === null) return false; 
         email = prompt('الرجاء كتابة البريد الإلكتروني بشكل صحيح:');
@@ -293,13 +257,11 @@ async function registerStudent(fingerprint) {
         
         const data = await response.json();
 
-        // حالة الحظر
         if (response.status === 403) {
             hideContent('الجهاز محظور', data.error);
             return false;
         }
 
-        // في حالة النجاح (أو استرجاع حساب موجود)
         if (data.id) {
             STUDENT_ID = data.id;
             localStorage.setItem(STORAGE_KEY_ID, data.id);
@@ -313,7 +275,6 @@ async function registerStudent(fingerprint) {
             return true;
         } 
         
-        // في حالة وجود مشكلة أخرى
         else if (data.error && data.error.includes('البريد الإلكتروني مسجل بالفعل')) {
             alert('⚠️ هذا البريد مسجل بالفعل. حاول مرة أخرى.');
             return false;
@@ -321,7 +282,6 @@ async function registerStudent(fingerprint) {
             alert('حدث خطأ: ' + data.error);
             return false;
         }
-
     } catch (err) {
         console.error(err);
         alert('فشل الاتصال بالخادم.');
@@ -329,22 +289,16 @@ async function registerStudent(fingerprint) {
     }
 }
 
-// التحقق من صلاحية المستخدم الحالي
 async function verifyStudent(localId) {
     if (!localId) return { status: 'new_user' };
-
     try {
         const response = await fetch(`${API_URL}/students/${localId}`);
         if (response.ok) {
             const student = await response.json();
-            // التحقق من الحظر
-            if (student.isblocked) {
-                return { status: 'account_blocked' };
-            }
+            if (student.isblocked) return { status: 'account_blocked' };
             STUDENT_ID = localId;
             return { status: 'valid' };
         } else {
-            // المعرف قديم أو غير موجود
             return { status: 'id_mismatch' };
         }
     } catch (err) {
@@ -352,10 +306,8 @@ async function verifyStudent(localId) {
     }
 }
 
-// تسجيل الدخول بالبصمة (للتحقق من حظر الجهاز)
 async function loginWithFingerprint(studentId, fingerprint) {
     if (!studentId || !fingerprint) return { status: 'error' };
-    
     try {
         const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
@@ -376,50 +328,38 @@ async function loginWithFingerprint(studentId, fingerprint) {
     }
 }
 
-// سؤال الأمان في الصفحة الرئيسية
 function checkAccessPermission() {
     const ans = prompt("هل صليت على النبي اليوم؟\n\nمفتاح الدخول: صلى الله عليه وسلم", "");
     if (!ans) return false;
-    
-    const norm = ans.replace(/[\u064B-\u0652]/g, '')
-                    .replace(/ـ/g, '')
-                    .replace(/[ى]/g, 'ي')
-                    .replace(/صلِ/g, 'صل')
-                    .trim();
-                    
+    const norm = ans.replace(/[\u064B-\u0652]/g, '').replace(/ـ/g, '').replace(/[ى]/g, 'ي').replace(/صلِ/g, 'صل').trim();
     return ["صلي", "الله", "عليه", "وسلم", "صل"].some(k => norm.includes(k));
 }
 
 /* -------------------------------------------------------------------------- */
-/* 6. نقطة الانطلاق الرئيسية (Main Execution Point)                           */
+/* 5. نقطة الانطلاق الرئيسية (Main Execution)                                */
 /* -------------------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    initThemeToggle(); // تفعيل الوضع الليلي
+    initThemeToggle();
     
-    // 1. جلب البصمة
     FINGERPRINT_ID = await getFingerprint();
 
-    // 2. التحقق من المستخدم
     const localId = localStorage.getItem(STORAGE_KEY_ID);
     const verification = await verifyStudent(localId);
 
-    // أ. الحساب محظور
     if (verification.status === 'account_blocked') {
         hideContent('الحساب محظور', 'تم إيقاف هذا الحساب. الرجاء التواصل مع الإدارة.');
         return;
     }
     
-    // ب. مستخدم جديد أو بيانات غير متطابقة
     if (verification.status === 'id_mismatch' || verification.status === 'new_user') {
         localStorage.removeItem(STORAGE_KEY_ID);
         localStorage.removeItem(STORAGE_KEY_NAME);
         
         const isRegistered = await registerStudent(FINGERPRINT_ID);
-        if (!isRegistered) return; // إلغاء أو فشل
+        if (!isRegistered) return; 
     }
 
-    // 3. سؤال الصلاة (في الرئيسية فقط)
     const subjectsGrid = $('subjects-grid'); 
     if (subjectsGrid) {
         if (!checkAccessPermission()) {
@@ -428,15 +368,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // 4. تسجيل الدخول بالبصمة
     const loginResult = await loginWithFingerprint(STUDENT_ID, FINGERPRINT_ID);
-    
     if (loginResult.status === 'fingerprint_blocked') {
         hideContent('الجهاز محظور', loginResult.message);
         return;
     }
 
-    // 5. توجيه وتحميل المحتوى المناسب
     const subjectKey = getSubjectKey();
     const quizBody = $('quiz-body');
     const summaryFilesContent = $('summary-content-files'); 
@@ -446,7 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (subjectsGrid) {
             initIndexPage();
         } else if (quizBody) {
-            await initQuizPage(subjectKey); // صفحة الاختبار (نظام المستويات)
+            await initQuizPage(subjectKey);
         } else if (summaryFilesContent) {
             await initSummaryPage(subjectKey);
         } else if (dashboardContent) { 
@@ -459,24 +396,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 /* -------------------------------------------------------------------------- */
-/* 7. دوال إدارة الصفحات (Page Controllers)                                  */
+/* 6. إدارة الصفحات (Page Controllers)                                       */
 /* -------------------------------------------------------------------------- */
 
 function initThemeToggle() {
     const btn = $('theme-toggle-btn');
     const saved = localStorage.getItem('theme') || 'dark';
-    if (saved === 'light') {
-        document.body.classList.add('light-mode');
-    }
-    if (btn) {
-        btn.addEventListener('click', () => {
-            document.body.classList.toggle('light-mode');
-            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
-        });
-    }
+    if (saved === 'light') document.body.classList.add('light-mode');
+    if (btn) btn.addEventListener('click', () => {
+        document.body.classList.toggle('light-mode');
+        localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+    });
 }
 
-// --- الصفحة الرئيسية ---
+// الصفحة الرئيسية
 async function initIndexPage() {
     const grid = $('subjects-grid');
     if (!grid) return;
@@ -490,7 +423,6 @@ async function initIndexPage() {
         const card = document.createElement('div');
         card.className = 'subject-card';
         card.dataset.subjectKey = key; 
-
         card.innerHTML = `
             <div class="card-icon">${s.icon || '📘'}</div> 
             <h3 class="card-title">${s.title}</h3>
@@ -503,10 +435,7 @@ async function initIndexPage() {
     }
     
     const allCards = grid.querySelectorAll('.subject-card');
-
-    for (const card of allCards) {
-        await loadAndEnableCard(card.dataset.subjectKey, card);
-    }
+    for (const card of allCards) { await loadAndEnableCard(card.dataset.subjectKey, card); }
 
     const searchBar = $('search-bar');
     if (searchBar) {
@@ -527,9 +456,7 @@ async function initIndexPage() {
 async function loadAndEnableCard(key, cardElement) {
     try {
         const data = await loadSubjectData(key); 
-        // تفعيل زر الاختبار إذا كان هناك مستويات أو أسئلة
-        const quizAvailable = (data.quizData?.questions && data.quizData.questions.length > 0) || true;
-        if (quizAvailable) {
+        if (data.quizData?.levels || data.quizData?.questions) {
             const quizBtn = cardElement.querySelector('.btn-quiz');
             if(quizBtn) {
                 quizBtn.classList.remove('disabled');
@@ -537,7 +464,7 @@ async function loadAndEnableCard(key, cardElement) {
                 quizBtn.setAttribute('aria-disabled', 'false');
             }
         }
-        if (data && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0 || data.summaryData.content?.length > 100)) { 
+        if (data && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0 || data.summaryData.content)) { 
             const summaryBtn = cardElement.querySelector('.btn-summary');
             if(summaryBtn) {
                 summaryBtn.classList.remove('disabled');
@@ -548,17 +475,14 @@ async function loadAndEnableCard(key, cardElement) {
     } catch (e) {}
 }
 
-// --- صفحة الملخص ---
+// الملخص
 async function initSummaryPage(subjectKey) {
     const titleEl = $('summary-title');
     const tabsContainer = document.querySelector('.summary-tabs');
     const filesContentEl = $('summary-content-files');
     const imagesContentEl = $('summary-content-images');
 
-    if (!subjectKey) {
-        titleEl.innerText = 'خطأ';
-        return;
-    }
+    if (!subjectKey) { titleEl.innerText = 'خطأ'; return; }
     
     try {
         const data = await loadSubjectData(subjectKey); 
@@ -577,8 +501,6 @@ async function initSummaryPage(subjectKey) {
 
         if (hasFiles || hasImages) {
             tabsContainer.style.display = 'flex';
-            
-            // تبويب الملفات
             if (hasFiles) {
                 let filesHtml = '<ul class="file-download-list">';
                 const checks = data.summaryData.files.map(async f => {
@@ -591,7 +513,6 @@ async function initSummaryPage(subjectKey) {
                 filesContentEl.innerHTML = res.join('') || '<p class="placeholder">لا توجد ملفات متاحة.</p>';
             } else { filesContentEl.innerHTML = '<p class="placeholder">لا توجد ملفات.</p>'; }
             
-            // تبويب الصور
             if (hasImages) {
                 let imgHtml = '<div class="gallery-grid">';
                 const checks = data.summaryData.images.map(async i => {
@@ -625,14 +546,12 @@ async function initSummaryPage(subjectKey) {
                 logActivity('Viewed Image Gallery', subjectTitle);
             });
             
-            // التبويب الافتراضي
             if (filesContentEl.innerHTML.includes('li')) fTab.click(); 
             else if (imagesContentEl.innerHTML.includes('img')) iTab.click();
             else fTab.click();
 
-            // Lightbox
             const modal = $('lightbox-modal');
-            if (modal) {
+            if(modal) {
                 const modalImg = $('lightbox-img');
                 const closeModal = $('lightbox-close');
                 
@@ -652,18 +571,16 @@ async function initSummaryPage(subjectKey) {
             filesContentEl.innerHTML = data.summaryData.content;
             filesContentEl.appendChild(backBtn);
             logActivity('Viewed Summary (Old)', subjectTitle);
+
         } else {
             tabsContainer.style.display = 'none';
             imagesContentEl.style.display = 'none';
             filesContentEl.innerHTML = '<p class="placeholder">الملخص غير متاح.</p>';
         }
-    } catch (e) {
-        console.error(e);
-        titleEl.innerText = 'خطأ في التحميل';
-    }
+    } catch (e) { titleEl.innerText = 'خطأ في التحميل'; }
 }
 
-// --- لوحة التقدم ---
+// لوحة التقدم
 async function initDashboardPage() {
     const container = $('dashboard-content');
     if (!container) return;
@@ -672,7 +589,6 @@ async function initDashboardPage() {
         container.innerHTML = '<p class="dashboard-empty-state">الرجاء تسجيل الدخول أولاً.</p>';
         return;
     }
-    
     container.innerHTML = '<p class="dashboard-empty-state">جاري تحميل إحصائياتك...</p>';
 
     try {
@@ -706,7 +622,7 @@ async function initDashboardPage() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 7. منطق الاختبار الجديد (Levels & Locking)                               */
+/* 7. منطق الاختبار (Levels System)                                          */
 /* -------------------------------------------------------------------------- */
 
 async function initQuizPage(subjectKey) {
@@ -724,14 +640,12 @@ async function initQuizPage(subjectKey) {
     try {
         const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results`);
         results = await res.json();
-    } catch (e) { console.error(e); }
+    } catch (e) {}
 
     // 2. بناء واجهة المستويات
     let html = '<div class="levels-grid">';
 
-    // التكرار على المستويات الثلاثة
     LEVEL_CONFIG.forEach((lvl, idx) => {
-        // اسم الاختبار كما يخزن في قاعدة البيانات
         const quizTitlePart = lvl.titleSuffix; 
 
         // حساب أفضل درجة لهذا المستوى
@@ -741,19 +655,17 @@ async function initQuizPage(subjectKey) {
             myScore = Math.max(...myAttempts.map(r => Math.round((r.correctAnswers/r.totalQuestions)*100)));
         }
 
-        // التحقق من القفل (هل نجح في المستوى السابق؟)
+        // التحقق من القفل
         let locked = false;
         if (idx > 0) {
             const prevLvlName = LEVEL_CONFIG[idx-1].titleSuffix;
             const prevAttempts = results.filter(r => r.quizName.includes(SUBJECTS[subjectKey].title) && r.quizName.includes(prevLvlName));
-            
             const passed = prevAttempts.some(r => (r.correctAnswers/r.totalQuestions) >= 0.8);
             if (!passed) locked = true;
         }
 
         const btnCls = locked ? 'locked-btn' : 'start';
         const btnTxt = locked ? `🔒 مغلق (مطلوب 80% في المستوى ${idx})` : '🚀 ابدأ الاختبار';
-        // استخدام دالة عامة
         const action = locked ? '' : `loadLevelFile('${subjectKey}', ${idx})`;
         const badge = myScore > 0 ? `<div style="color:${myScore>=80?'var(--color-correct)':'var(--color-pass)'};margin-bottom:10px;font-weight:bold;">أفضل درجة: ${myScore}%</div>` : '';
 
@@ -770,45 +682,34 @@ async function initQuizPage(subjectKey) {
     body.innerHTML = html + '</div>';
 }
 
-// دالة تحميل ملف المستوى وتشغيله (Global)
+// دالة تحميل ملف المستوى (Global)
 window.loadLevelFile = async (subjectKey, levelIndex) => {
     const config = LEVEL_CONFIG[levelIndex];
-    const fileName = `data_${subjectKey}/data_${subjectKey}${config.suffix}`; 
-    const url = `${fileName}?v=${Date.now()}`;
+    // (تصحيح المسار ليكون ديناميكياً وصحيحاً)
+    const fileName = `data_${subjectKey}${config.suffix}`; 
+    const url = `data_${subjectKey}/${fileName}?v=${Date.now()}`;
 
-    $('quiz-body').innerHTML = '<p style="text-align:center; padding:3rem;">جاري تحميل الاختبار...</p>';
+    $('quiz-body').innerHTML = '<p style="text-align:center; padding:3rem;">جاري تحميل أسئلة الاختبار...</p>';
 
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error('ملف الاختبار غير موجود');
         const quizData = await res.json();
         
-        // تشغيل المحرك مع الاسم الكامل
         const fullTitle = `${SUBJECTS[subjectKey].title} - ${config.titleSuffix}`;
         initAndStartQuiz(quizData.questions, fullTitle);
     } catch (e) {
-        alert('عذراً، ملف الأسئلة غير موجود حالياً.');
-        initQuizPage(subjectKey); // العودة للقائمة
+        alert('عذراً، ملف الأسئلة غير موجود حالياً.\nتأكد من رفع الملف: ' + fileName);
+        initQuizPage(subjectKey);
     }
 };
 
-
 /* -------------------------------------------------------------------------- */
-/* 8. محرك الاختبار (Quiz Engine - Global Scope)                             */
+/* 8. محرك الاختبارات (Global Quiz Engine)                                   */
 /* -------------------------------------------------------------------------- */
 
-// تعريف المتغيرات العامة للمحرك
-let currentQuestions = [];
-let currentQuestionIndex = 0;
-let currentScore = 0;
-let currentCorrectCount = 0;
-let incorrectQuestions = [];
-let quizStartTime = 0;
-let questionStartTime = 0;
-let currentQuizTitle = "";
-
-// دالة البدء
 function initAndStartQuiz(questions, title) {
+    // إعادة تعيين المتغيرات
     currentQuestions = [...questions].sort(() => Math.random() - 0.5);
     currentQuizTitle = title;
     currentQuestionIndex = 0;
@@ -816,7 +717,7 @@ function initAndStartQuiz(questions, title) {
     currentCorrectCount = 0;
     incorrectQuestions = [];
 
-    // إعادة بناء الهيكل
+    // بناء الهيكل
     $('quiz-body').innerHTML = `
         <h3 id="question-text"></h3>
         <div id="opts" class="options-container"></div>
@@ -828,7 +729,7 @@ function initAndStartQuiz(questions, title) {
     const btn = $('next-btn');
     btn.style.display = 'block';
     btn.innerText = 'التالي';
-    btn.onclick = handleNextButton;
+    btn.onclick = handleNextButton; // ربط الزر
 
     loadQuestion();
 }
@@ -836,7 +737,7 @@ function initAndStartQuiz(questions, title) {
 function loadQuestion() {
     const q = currentQuestions[currentQuestionIndex];
     $('question-text').innerText = q.question;
-    $('question-counter').innerText = `${currentQuestionIndex + 1} / ${currentQuestions.length}`;
+    $('question-counter').innerText = `السؤال ${currentQuestionIndex + 1} / ${currentQuestions.length}`;
     $('progress-bar').style.width = `${((currentQuestionIndex + 1) / currentQuestions.length) * 100}%`;
     
     const feedback = $('feedback');
@@ -871,15 +772,19 @@ function loadQuestion() {
     $('quiz-body').style.display = 'block';
 }
 
-// دالة التحقق (Global)
+// (دالة عامة للتحقق من الإجابة)
 window.checkAnswer = function(btn, isCorrect) {
     document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-    const timeTaken = (Date.now() - questionStartTime) / 1000;
+    const timeTaken = (Date.now() - questionStartTime) / 1000; // (تم تعريف المتغير هنا)
     
     if (isCorrect) {
         currentCorrectCount++;
-        let pts = 20; // نقاط أساسية
-        if (timeTaken < 5) pts += 5; // بونص سرعة
+        let pts = 20;
+        const q = currentQuestions[currentQuestionIndex];
+        if (q.difficulty === 'hard') pts = 30;
+        else if (q.difficulty === 'easy') pts = 10;
+        
+        if (timeTaken < 5) pts += 5;
         
         currentScore += pts;
         btn.classList.add('correct');
@@ -917,7 +822,6 @@ function showResults() {
     const resDiv = $('results-container');
     resDiv.style.display = 'flex';
 
-    // حفظ النتيجة إذا لم تكن مراجعة
     if (!currentQuizTitle.includes('مراجعة')) {
         saveQuizResult(currentQuizTitle, currentScore, currentQuestions.length, currentCorrectCount);
     }
