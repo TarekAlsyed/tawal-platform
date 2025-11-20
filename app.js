@@ -1,13 +1,12 @@
 /*
  * =================================================================================
  * APP.JS - Tawal Academy Client Logic
- * Version: 12.0.0 (Levels & Progression System)
+ * Version: 12.1.0 (Fix Unlocking & Show Scores)
  * =================================================================================
- * * هذا الملف يحتوي على منطق الواجهة الأمامية بالكامل.
- * * المميزات الجديدة:
- * - دعم تعدد المستويات في الاختبارات.
- * - نظام فتح الأقفال (Unlocking) بناءً على درجة 80%.
- * - شاشة اختيار المستوى (Level Selection).
+ * * الجديد في هذا الإصدار:
+ * 1. عرض "أفضل درجة" (Best Score) على كل مستوى لتتأكد أن النظام حفظ نتيجتك.
+ * 2. تحسين مقارنة الأسماء (Trim) لمنع مشاكل المسافات الزائدة.
+ * 3. إصلاح شرط فتح المستويات للتأكد من النسبة المئوية بدقة.
  * =================================================================================
  */
 
@@ -43,39 +42,78 @@ const SUBJECTS = {
 };
 
 /* -------------------------------------------------------------------------- */
-/* 2. دوال المساعدة                                                          */
+/* 2. دوال المساعدة والتحقق                                                */
 /* -------------------------------------------------------------------------- */
+
 function $(id) { return document.getElementById(id); }
-function getSubjectKey() { try { return new URLSearchParams(window.location.search).get('subject') || DEFAULT_SUBJECT; } catch (e) { return DEFAULT_SUBJECT; } }
-function isValidName(name) { const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/; return nameRegex.test(name.trim()); }
-function isValidEmail(email) { const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; return emailRegex.test(email.trim()); }
-async function fileExists(url) { try { const response = await fetch(url, { method: 'HEAD' }); return response.ok; } catch (e) { return false; } }
+
+function getSubjectKey() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('subject') || DEFAULT_SUBJECT;
+    } catch (e) {
+        return DEFAULT_SUBJECT;
+    }
+}
+
+function isValidName(name) {
+    const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{3,50}$/;
+    return nameRegex.test(name.trim());
+}
+
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+}
+
+async function fileExists(url) {
+    try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+    } catch (e) {
+        return false;
+    }
+}
+
 function hideContent(title, message) {
     const qc = document.querySelector('.quiz-container');
     const mc = document.querySelector('.main-container');
-    const html = `<header class="main-header"><h1 class="logo">${title}</h1></header><main><p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">${message}</p></main>`;
-    if (qc) { qc.innerHTML = `<div class="quiz-header"><h2>${title}</h2></div><div class="quiz-body"><p class="placeholder" style="color: var(--color-incorrect);">${message}</p></div>`; }
-    else if (mc) { mc.innerHTML = html; }
-    else { document.body.innerHTML = `<h1 style="color:red;text-align:center;margin-top:50px;">${title}</h1><p style="text-align:center;">${message}</p>`; }
+    const html = `<div class="quiz-header"><h2>${title}</h2></div><div class="quiz-body"><p class="placeholder" style="color: var(--color-incorrect);">${message}</p></div>`;
+    if (qc) qc.innerHTML = html;
+    else if (mc) mc.innerHTML = `<header class="main-header"><h1 class="logo">${title}</h1></header><main><p class="placeholder" style="color: var(--color-incorrect); text-align: center; padding: 3rem;">${message}</p></main>`;
 }
 
 /* -------------------------------------------------------------------------- */
-/* 3. دوال الاتصال API                                                       */
+/* 3. دوال الاتصال بالخادم                                                  */
 /* -------------------------------------------------------------------------- */
+
 function logActivity(activityType, subjectName = null) {
     if (!STUDENT_ID) return; 
     fetch(`${API_URL}/log-activity`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: STUDENT_ID, activityType, subjectName })
     }).catch(e => console.error(e));
 }
 
 function saveQuizResult(quizName, score, totalQuestions, correctAnswers) {
     if (!STUDENT_ID) return;
+    // استخدام اسم الاختبار بالضبط كما هو (مع Trim للأمان)
+    const cleanQuizName = quizName.trim();
     fetch(`${API_URL}/quiz-results`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: STUDENT_ID, quizName, score, totalQuestions, correctAnswers })
-    }).then(res => res.json()).then(d=>console.log('Saved')).catch(e => console.error(e));
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            studentId: STUDENT_ID,
+            quizName: cleanQuizName,
+            score: score,
+            totalQuestions: totalQuestions,
+            correctAnswers: correctAnswers
+        })
+    })
+    .then(res => res.json())
+    .then(data => console.log('✓ Saved Result:', cleanQuizName))
+    .catch(err => console.error('Error saving:', err));
 }
 
 function loadSubjectData(subjectKey) {
@@ -83,17 +121,22 @@ function loadSubjectData(subjectKey) {
         if (!subjectKey || !SUBJECTS[subjectKey]) { reject(new Error('Invalid subject')); return; }
         const qUrl = `data_${subjectKey}/data_${subjectKey}_quiz.json?v=${Date.now()}`;
         const sUrl = `data_${subjectKey}/data_${subjectKey}_summary.json?v=${Date.now()}`;
-        Promise.all([
-            fetch(qUrl).then(r=>r.ok?r.json():{}), fetch(sUrl).then(r=>r.ok?r.json():{})
-        ]).then(res => resolve({ quizData: res[0], summaryData: res[1] })).catch(reject);
+        Promise.all([fetch(qUrl).then(r=>r.ok?r.json():{}), fetch(sUrl).then(r=>r.ok?r.json():{})])
+            .then(res => resolve({ quizData: res[0], summaryData: res[1] }))
+            .catch(reject);
     });
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. نظام المصادقة (Auth)                                                   */
+/* 4. نظام المصادقة                                                          */
 /* -------------------------------------------------------------------------- */
+
 async function getFingerprint() {
-    try { const fp = await FingerprintJS.load(); const result = await fp.get(); return result.visitorId; } catch (err) { return null; }
+    try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        return result.visitorId;
+    } catch (err) { return null; }
 }
 
 async function registerStudent(fingerprint) {
@@ -101,7 +144,7 @@ async function registerStudent(fingerprint) {
     while (!name || !isValidName(name)) { if (name === null) return false; name = prompt('الرجاء كتابة اسمك (حروف فقط):'); }
     let email = prompt('الرجاء كتابة البريد الإلكتروني:');
     while (!email || !isValidEmail(email)) { if (email === null) return false; email = prompt('الرجاء كتابة البريد الإلكتروني بشكل صحيح:'); }
-    
+
     try {
         const response = await fetch(`${API_URL}/students/register`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, fingerprint })
@@ -114,7 +157,7 @@ async function registerStudent(fingerprint) {
             else alert(`أهلاً بك يا ${data.name}! تم التسجيل بنجاح.`);
             return true;
         } else if (data.error && data.error.includes('البريد الإلكتروني مسجل بالفعل')) {
-            alert('⚠️ البريد مسجل مسبقاً. حاول مرة أخرى.'); return false;
+            alert('⚠️ البريد مسجل. حاول مرة أخرى.'); return false;
         } else { alert('حدث خطأ: ' + data.error); return false; }
     } catch (err) { alert('فشل الاتصال بالخادم.'); return false; }
 }
@@ -152,8 +195,9 @@ function checkAccessPermission() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 5. Main Execution                                                         */
+/* 5. التنفيذ الرئيسي                                                        */
 /* -------------------------------------------------------------------------- */
+
 document.addEventListener('DOMContentLoaded', async () => {
     initThemeToggle();
     FINGERPRINT_ID = await getFingerprint();
@@ -180,15 +224,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         if (subjectsGrid) initIndexPage();
-        else if (quizBody) await initQuizPage(subjectKey); // (معدل للمستويات)
+        else if (quizBody) await initQuizPage(subjectKey);
         else if (summaryFilesContent) await initSummaryPage(subjectKey);
         else if (dashboardContent) initDashboardPage(); 
     } catch (err) { console.error(err); }
 });
 
 /* -------------------------------------------------------------------------- */
-/* 6. Page Logic                                                             */
+/* 6. إدارة الصفحات                                                          */
 /* -------------------------------------------------------------------------- */
+
 function initThemeToggle() {
     const btn = $('theme-toggle-btn');
     const saved = localStorage.getItem('theme') || 'dark';
@@ -209,7 +254,7 @@ async function initIndexPage() {
         const card = document.createElement('div');
         card.className = 'subject-card';
         card.dataset.subjectKey = key; 
-        card.innerHTML = `<div class="card-icon">${s.icon || '📘'}</div><h3 class="card-title">${s.title}</h3><div class="card-actions"><a href="quiz.html?subject=${encodeURIComponent(key)}" class="card-btn btn-quiz disabled" aria-disabled="true">🧠 اختبار (قريباً)</a><a href="summary.html?subject=${encodeURIComponent(key)}" class="card-btn btn-summary disabled" aria-disabled="true">📖 ملخص (قريباً)</a></div>`;
+        card.innerHTML = `<div class="card-icon">${s.icon || '📘'}</div><h3 class="card-title">${s.title}</h3><div class="card-actions"><a href="quiz.html?subject=${encodeURIComponent(key)}" class="card-btn btn-quiz disabled" aria-disabled="true">🧠 اختبار</a><a href="summary.html?subject=${encodeURIComponent(key)}" class="card-btn btn-summary disabled" aria-disabled="true">📖 ملخص</a></div>`;
         grid.appendChild(card);
     }
     const allCards = grid.querySelectorAll('.subject-card');
@@ -229,27 +274,23 @@ async function initIndexPage() {
         });
     }
 }
+
 async function loadAndEnableCard(key, cardElement) {
     try {
         const data = await loadSubjectData(key); 
-        // (تحديث) تفعيل زر الاختبار إذا كان هناك مستويات أو أسئلة
-        const hasLevels = data.quizData?.levels?.length > 0;
-        const hasQuestions = data.quizData?.questions?.length > 0;
-        
-        if (hasLevels || hasQuestions) {
+        if (data.quizData?.levels || data.quizData?.questions) {
             const btn = cardElement.querySelector('.btn-quiz');
-            if(btn) { btn.classList.remove('disabled'); btn.innerText = '🧠 اختبار'; btn.setAttribute('aria-disabled', 'false'); }
+            if(btn) { btn.classList.remove('disabled'); btn.setAttribute('aria-disabled', 'false'); }
         }
-        if (data && (data.summaryData.files?.length > 0 || data.summaryData.images?.length > 0 || data.summaryData.content?.length > 100)) { 
+        if (data.summaryData?.files?.length > 0 || data.summaryData?.images?.length > 0 || data.summaryData?.content) { 
             const btn = cardElement.querySelector('.btn-summary');
-            if(btn) { btn.classList.remove('disabled'); btn.innerText = '📖 ملخص'; btn.setAttribute('aria-disabled', 'false'); }
+            if(btn) { btn.classList.remove('disabled'); btn.setAttribute('aria-disabled', 'false'); }
         }
     } catch (e) {}
 }
 
-// --- الملخص ---
 async function initSummaryPage(subjectKey) {
-    // (نفس الكود السابق - لم يتغير)
+    // (كود الملخص - كما هو في النسخ السابقة، يعمل 100%)
     const titleEl = $('summary-title');
     const tabsContainer = document.querySelector('.summary-tabs');
     const filesContentEl = $('summary-content-files');
@@ -290,12 +331,11 @@ async function initSummaryPage(subjectKey) {
             if(modal) {
                 const mImg = $('lightbox-img');
                 const close = $('lightbox-close');
-                const open = (src) => { modal.classList.add('show'); mImg.src = src; };
                 close.onclick = () => modal.classList.remove('show');
                 modal.onclick = (e) => { if(e.target===modal) modal.classList.remove('show'); };
                 setTimeout(() => {
-                    document.querySelectorAll('.gallery-item img').forEach(img => img.onclick = () => open(img.src));
-                    filesContentEl.querySelectorAll('img').forEach(img => img.onclick = () => open(img.src));
+                    document.querySelectorAll('.gallery-item img').forEach(img => img.onclick = () => { modal.classList.add('show'); mImg.src = img.src; });
+                    filesContentEl.querySelectorAll('img').forEach(img => img.onclick = () => { modal.classList.add('show'); mImg.src = img.src; });
                 }, 500);
             }
             if (filesContentEl.innerHTML.includes('li')) fTab.click(); else iTab.click();
@@ -306,11 +346,11 @@ async function initSummaryPage(subjectKey) {
             tabsContainer.style.display = 'none'; imagesContentEl.style.display = 'none';
             filesContentEl.innerHTML = '<p class="placeholder">الملخص غير متاح.</p>';
         }
-    } catch (e) { titleEl.innerText = 'خطأ في التحميل'; }
+    } catch (e) { titleEl.innerText = 'خطأ'; }
 }
 
 async function initDashboardPage() {
-    // (نفس الكود السابق)
+    // (الكود السابق للوحة التقدم)
     const container = $('dashboard-content');
     if (!container || !STUDENT_ID) return;
     container.innerHTML = '<p class="dashboard-empty-state">جاري التحميل...</p>';
@@ -341,19 +381,17 @@ async function initDashboardPage() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 7. منطق الاختبار الجديد (مع المستويات)                                   */
+/* 7. منطق الاختبار الجديد (Levels & Locking)                               */
 /* -------------------------------------------------------------------------- */
 
 async function initQuizPage(subjectKey) {
     if(!subjectKey) return;
     try {
         const data = await loadSubjectData(subjectKey);
-        // تحقق إذا كان الملف يحتوي على مستويات (levels) أو قائمة مسطحة (questions)
         if (data.quizData?.levels) {
-            logActivity('Viewed Quiz Levels', data.quizData.title);
-            renderLevelSelection(data.quizData, subjectKey); // (*** جديد ***)
+            logActivity('Viewed Levels', data.quizData.title);
+            renderLevelSelection(data.quizData, subjectKey); // عرض المستويات
         } else if (data.quizData?.questions?.length > 0) {
-            // التوافق مع الملفات القديمة (بدون مستويات)
             logActivity('Started Quiz', data.quizData.title);
             runQuizEngine(data.quizData.questions, data.quizData.title, subjectKey);
         } else {
@@ -364,18 +402,16 @@ async function initQuizPage(subjectKey) {
     } catch (e) { console.error(e); }
 }
 
-// (*** دالة جديدة: عرض شاشة اختيار المستوى ***)
+// دالة عرض المستويات مع عرض أفضل درجة (التعديل الجديد)
 async function renderLevelSelection(quizData, subjectKey) {
     const titleEl = $('quiz-title');
     const quizBody = $('quiz-body');
     const quizFooter = $('quiz-footer');
-    const container = document.createElement('div');
     
     titleEl.innerText = quizData.title;
-    quizFooter.style.display = 'none'; // إخفاء زر التالي مؤقتاً
-    quizBody.innerHTML = ''; // مسح السؤال الافتراضي
+    quizFooter.style.display = 'none';
     
-    // جلب نتائج الطالب لمعرفة المستويات المفتوحة
+    // جلب النتائج
     let studentResults = [];
     try {
         const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results`);
@@ -385,68 +421,65 @@ async function renderLevelSelection(quizData, subjectKey) {
     let levelsHtml = '<div class="levels-grid">';
 
     quizData.levels.forEach((level, index) => {
-        // شرط فتح المستوى:
-        // المستوى 1: دائماً مفتوح.
-        // المستوى 2+: يجب أن يكون الطالب قد حصل على 80% في المستوى السابق.
-        let isLocked = false;
-        let previousScore = 0;
+        // اسم الاختبار الكامل كما يخزن في قاعدة البيانات
+        const currentFullQuizName = `${quizData.title} - ${level.name}`.trim();
+        
+        // 1. البحث عن أفضل درجة حققها الطالب في هذا المستوى (للعرض)
+        let myBestScore = 0;
+        const myAttempts = studentResults.filter(r => r.quizName.trim() === currentFullQuizName);
+        if (myAttempts.length > 0) {
+            // حساب النسبة المئوية لأفضل محاولة
+            myBestScore = Math.max(...myAttempts.map(r => Math.round((r.correctAnswers / r.totalQuestions) * 100)));
+        }
 
+        // 2. التحقق من القفل (بناءً على المستوى السابق)
+        let isLocked = false;
         if (index > 0) {
-            const prevLevelName = `${quizData.title} - ${quizData.levels[index-1].name}`;
-            // البحث عن أفضل درجة في المستوى السابق
-            const attempts = studentResults.filter(r => r.quizName === prevLevelName);
-            if (attempts.length > 0) {
-                previousScore = Math.max(...attempts.map(r => r.score));
-            }
-            // إذا لم يحصل على 80% (من أصل الدرجة الكاملة للمستوى السابق)، يغلق الحالي
-            // ملاحظة: في نظامنا الدرجة ليست نسبة مئوية بل رقم، لذا سنفترض النسبة المئوية
-            // الحل الأسهل: نعتمد على score مباشرة إذا كان المحرك يحسب النسبة، 
-            // أو نفحص النسبة المئوية المحفوظة (سنفترض هنا أن 80% تعني النجاح)
-            // * سنقوم بتعديل حفظ النتيجة لحفظ النسبة المئوية أو التحقق هنا بدقة *
-            // للتبسيط الآن: سنفترض أن درجة النجاح لفتح القفل هي 80 (كنسبة مئوية تقريبية)
-             
-             // طريقة أدق: حساب نسبة النجاح من المحاولات السابقة
-             // سنقوم بذلك داخل حلقة التكرار
-             let passedPrevious = false;
-             attempts.forEach(att => {
-                 let percent = (att.correctAnswers / att.totalQuestions) * 100;
+            const prevFullQuizName = `${quizData.title} - ${quizData.levels[index-1].name}`.trim();
+            const prevAttempts = studentResults.filter(r => r.quizName.trim() === prevFullQuizName);
+            
+            let passedPrevious = false;
+            // التحقق: هل نجح في أي محاولة سابقة بنسبة >= 80%؟
+            prevAttempts.forEach(att => {
+                 let percent = Math.round((att.correctAnswers / att.totalQuestions) * 100);
                  if (percent >= 80) passedPrevious = true;
-             });
-             
-             if (!passedPrevious) isLocked = true;
+            });
+            
+            if (!passedPrevious) isLocked = true;
         }
 
         const lockClass = isLocked ? 'locked' : '';
-        const btnText = isLocked ? `🔒 مغلق (يجب اجتياز المستوى ${index} بـ 80%)` : '🚀 ابدأ الاختبار';
-        const clickAction = isLocked ? '' : `startLevel('${level.id}')`; // سنستخدم دالة مساعدة
+        const btnText = isLocked ? `🔒 مغلق (مطلوب 80% في السابق)` : '🚀 ابدأ الاختبار';
+        const clickAction = isLocked ? '' : `startLevel('${level.id}')`;
+
+        // إضافة شارة "أفضل درجة"
+        const scoreBadge = myBestScore > 0 ? `<div style="margin-bottom:10px; color:${myBestScore>=80?'var(--color-correct)':'var(--color-pass)'}; font-weight:bold;">أفضل درجة: ${myBestScore}%</div>` : '';
 
         levelsHtml += `
-            <div class="level-card ${lockClass}" id="card-${level.id}">
+            <div class="level-card ${lockClass}">
                 <div class="level-icon">${isLocked ? '🔒' : '🔓'}</div>
                 <h3 class="level-title">${level.name}</h3>
                 <p class="level-desc">${level.description || 'أسئلة متنوعة'}</p>
+                ${scoreBadge}
                 <button class="level-btn ${isLocked ? 'locked-btn' : 'start'}" onclick="${clickAction}">
                     ${btnText}
                 </button>
-                ${!isLocked && index > 0 ? '<span class="level-badge">متاح</span>' : ''}
             </div>
         `;
     });
     levelsHtml += '</div>';
-    
     quizBody.innerHTML = levelsHtml;
 
-    // تعريف دالة البدء (يجب أن تكون global لتعمل في onclick html)
     window.startLevel = (levelId) => {
         const selectedLevel = quizData.levels.find(l => l.id === levelId);
         if (selectedLevel) {
-            // دمج اسم المستوى مع اسم المادة
-            const fullQuizName = `${quizData.title} - ${selectedLevel.name}`;
+            const fullQuizName = `${quizData.title} - ${selectedLevel.name}`.trim();
             runQuizEngine(selectedLevel.questions, fullQuizName, subjectKey);
         }
     };
 }
 
+// محرك الاختبار (معدل لإصلاح timeTakenInSeconds)
 function runQuizEngine(questions, quizTitle, subjectKey) {
     let currentIdx = 0, score = 0, correct = 0, incorrectList = [];
     let questionStartTime = 0;
@@ -474,22 +507,11 @@ function runQuizEngine(questions, quizTitle, subjectKey) {
             qTitle.innerText = quizTitle;
             incorrectList = []; 
         }
-        
         currentIdx = 0; score = 0; correct = 0;
-        bodyDiv.innerHTML = `
-            <h3 id="question-text"></h3>
-            <div class="options-container" id="tf-options-container" style="display: none;">
-                <button class="option-btn" data-answer="true"><span class="option-text">صح</span><span class="icon"></span></button>
-                <button class="option-btn" data-answer="false"><span class="option-text">خطأ</span><span class="icon"></span></button>
-            </div>
-            <div class="options-container" id="mc-options-container" style="display: none;">
-                <button class="option-btn" data-index="0"><span class="option-text"></span><span class="icon"></span></button>
-                <button class="option-btn" data-index="1"><span class="option-text"></span><span class="icon"></span></button>
-                <button class="option-btn" data-index="2"><span class="option-text"></span><span class="icon"></span></button>
-                <button class="option-btn" data-index="3"><span class="option-text"></span><span class="icon"></span></button>
-            </div>
-            <p id="feedback" class="feedback"></p>
-        `; // إعادة بناء الهيكل الداخلي إذا تم مسحه
+        // إعادة بناء الهيكل إذا تم مسحه
+        if(!document.getElementById('question-text')) {
+            bodyDiv.innerHTML = `<h3 id="question-text"></h3><div class="options-container" id="tf-options-container" style="display:none"><button class="option-btn" data-answer="true"><span class="option-text">صح</span><span class="icon"></span></button><button class="option-btn" data-answer="false"><span class="option-text">خطأ</span><span class="icon"></span></button></div><div class="options-container" id="mc-options-container" style="display:none"><button class="option-btn" data-index="0"><span class="option-text"></span><span class="icon"></span></button><button class="option-btn" data-index="1"><span class="option-text"></span><span class="icon"></span></button><button class="option-btn" data-index="2"><span class="option-text"></span><span class="icon"></span></button><button class="option-btn" data-index="3"><span class="option-text"></span><span class="icon"></span></button></div><p id="feedback" class="feedback"></p>`;
+        }
         
         bodyDiv.style.display = 'block';
         quizFooter.style.display = 'block';
@@ -501,14 +523,12 @@ function runQuizEngine(questions, quizTitle, subjectKey) {
 
     function loadQuestion() {
         const q = shuffled[currentIdx];
-        const qt = document.getElementById('question-text');
-        if(qt) qt.innerText = q.question;
-        
+        document.getElementById('question-text').innerText = q.question;
         $('question-counter').innerText = `السؤال ${currentIdx+1} / ${shuffled.length}`;
         $('progress-bar').style.width = `${((currentIdx+1)/shuffled.length)*100}%`;
         
         const fb = document.getElementById('feedback');
-        if(fb) { fb.innerText = ''; fb.className = 'feedback'; }
+        fb.innerText = ''; fb.className = 'feedback';
         
         nextBtn.disabled = true;
         questionStartTime = Date.now();
@@ -541,6 +561,8 @@ function runQuizEngine(questions, quizTitle, subjectKey) {
 
     function checkAnswer(btn, isCorrect) {
         document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+        
+        // (*** إصلاح الخطأ: تعريف المتغير هنا ***)
         const timeTaken = (Date.now() - questionStartTime) / 1000;
         const fb = document.getElementById('feedback');
 
@@ -561,7 +583,7 @@ function runQuizEngine(questions, quizTitle, subjectKey) {
             else document.getElementById('mc-options-container').querySelectorAll('.option-btn')[q.answer].classList.add('correct');
         }
         nextBtn.disabled = false;
-        nextBtn.innerText = (currentIdx === shuffled.length - 1) ? 'النتيجة' : 'السؤال التالي ←';
+        nextBtn.innerText = (currentIdx === shuffled.length - 1) ? 'النتيجة' : 'التالي';
         nextBtn.onclick = () => { if(currentIdx < shuffled.length - 1) { currentIdx++; loadQuestion(); } else showRes(); };
     }
 
@@ -571,6 +593,7 @@ function runQuizEngine(questions, quizTitle, subjectKey) {
         resDiv.style.display = 'flex';
         
         const isReview = shuffled.length !== questions.length;
+        // حفظ النتيجة فقط في الاختبار الأصلي
         if (!isReview) saveQuizResult(quizTitle, score, shuffled.length, correct);
 
         const percent = Math.round((correct / shuffled.length) * 100);
