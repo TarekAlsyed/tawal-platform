@@ -1,11 +1,11 @@
 /*
  * =================================================================================
  * APP.JS - Tawal Academy Client Logic
- * Version: 14.2.1 (Hotfix: Null Safety Check)
+ * Version: 14.3.0 (Cache Fix & Final Polish)
  * =================================================================================
- * * الإصلاحات في هذا الإصدار:
- * 1. إصلاح مشكلة Crash عند وجود نتائج اختبارات سابقة بدون اسم (Fix undefined quizName).
- * 2. إضافة فحص أمان قبل قراءة includes لمنع الشاشة من التوقف عند "جاري التحميل".
+ * * التحديثات:
+ * 1. حل مشكلة عدم فتح المستويات (إجبار تحديث النتائج ومنع الكاش).
+ * 2. تحسين دقة مطابقة أسماء الاختبارات.
  * =================================================================================
  */
 
@@ -15,21 +15,19 @@
 
 const API_URL = 'https://tawal-backend-production.up.railway.app/api';
 
-// مفاتيح التخزين
 const STORAGE_KEY_ID = 'tawal_studentId_v4'; 
 const STORAGE_KEY_NAME = 'tawal_studentName_v4';
 
-// متغيرات الجلسة
 let STUDENT_ID = localStorage.getItem(STORAGE_KEY_ID);
 let FINGERPRINT_ID = null;
 
-// الإعدادات الافتراضية
 const DEFAULT_SUBJECT = 'gis_networks';
 
 // إعدادات المستويات
+// requiredScore: الدرجة المطلوبة في هذا المستوى لفتح المستوى الذي يليه
 const LEVEL_CONFIG = [
-    { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 0 },
-    { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 },
+    { id: 1, suffix: '_quiz_1.json', titleSuffix: 'المستوى 1', name: 'المستوى الأول (مبتدئ)', requiredScore: 50 }, // يجب أن تجيب 50% هنا لفتح المستوى 2
+    { id: 2, suffix: '_quiz_2.json', titleSuffix: 'المستوى 2', name: 'المستوى الثاني (متوسط)', requiredScore: 80 }, // يجب أن تجيب 80% هنا لفتح المستوى 3
     { id: 3, suffix: '_quiz_3.json', titleSuffix: 'المستوى 3', name: 'المستوى الثالث (متقدم)', requiredScore: 85 }
 ];
 
@@ -433,7 +431,8 @@ async function initQuizPage(subjectKey) {
 
     let pastResults = [];
     try {
-        const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results`);
+        // [هام جداً]: إضافة الطابع الزمني لإجبار المتصفح على جلب النتائج الجديدة
+        const res = await fetch(`${API_URL}/students/${STUDENT_ID}/results?t=${Date.now()}`);
         pastResults = await res.json();
     } catch (e) {}
 
@@ -443,7 +442,6 @@ async function initQuizPage(subjectKey) {
         let locked = false;
         if (idx > 0) {
             const prevLvl = LEVEL_CONFIG[idx - 1];
-            // FIX: أضفنا فحص وجود quizName لتجنب الخطأ
             const prevAttempts = pastResults.filter(r => 
                 r.quizName && 
                 r.quizName.includes(SUBJECTS[subjectKey].title) && 
@@ -458,7 +456,7 @@ async function initQuizPage(subjectKey) {
         }
 
         const myAttempts = pastResults.filter(r => 
-            r.quizName && // Fix here too
+            r.quizName && 
             r.quizName.includes(SUBJECTS[subjectKey].title) && 
             r.quizName.includes(lvl.titleSuffix)
         );
@@ -466,7 +464,8 @@ async function initQuizPage(subjectKey) {
 
         const btnClass = locked ? 'locked-btn' : 'start';
         const btnStyle = locked ? 'background:#ccc; cursor:not-allowed;' : 'background:var(--primary-color-gradient); color:white;';
-        const btnText = locked ? `🔒 مغلق (مطلوب ${LEVEL_CONFIG[idx-1]?.requiredScore}% في السابق)` : '🚀 ابدأ الاختبار';
+        // تعديل النص ليكون أوضح للمستخدم
+        const btnText = locked ? `🔒 مغلق (يجب تحقيق ${LEVEL_CONFIG[idx-1]?.requiredScore}% في المستوى السابق)` : '🚀 ابدأ الاختبار';
         const onClick = locked ? '' : `loadLevelFile('${subjectKey}', ${idx})`;
         const badge = bestScore > 0 ? `<div style="color:${bestScore>=lvl.requiredScore?'var(--color-correct)':'var(--color-pass)'};margin-bottom:10px;font-weight:bold;">أفضل درجة: ${bestScore}%</div>` : '';
 
@@ -644,7 +643,7 @@ async function initDashboardPage() {
     try {
         const [stats, results] = await Promise.all([
             fetch(`${API_URL}/students/${STUDENT_ID}/stats`).then(r=>r.json()),
-            fetch(`${API_URL}/students/${STUDENT_ID}/results`).then(r=>r.json())
+            fetch(`${API_URL}/students/${STUDENT_ID}/results?t=${Date.now()}`).then(r=>r.json()) // Cache Fix
         ]);
 
         if (stats.error) throw new Error();
@@ -658,7 +657,6 @@ async function initDashboardPage() {
 
         const byQuiz = {};
         results.forEach(r => { 
-            // FIX: تأمين اسم الاختبار
             const qName = r.quizName || 'اختبار غير معروف';
             if(!byQuiz[qName]) byQuiz[qName]=[]; 
             byQuiz[qName].push(r); 
