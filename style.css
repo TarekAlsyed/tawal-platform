@@ -1,48 +1,23 @@
-/*
- * style.css - Tawal Academy Stylesheet
- * Version: 2.0.0 (Full Comprehensive Build)
- * =========================================================
- * 1. Variables & Themes (Dark/Light)
- * 2. Global Layout & Typography
- * 3. Header & Navigation
- * 4. Home Page (Subjects Grid)
- * 5. Quiz Interface
- * 6. Summary Interface (Tabs, Gallery, Lightbox)
- * 7. Dashboard Interface
- * 8. Admin Panel (Tables, Modals, Blocking Buttons)
- * 9. Responsive Design
- * =========================================================
- */
-
-/* -------------------------------------------------------------------------- */
-/* 1. Variables & Themes                                                      */
-/* -------------------------------------------------------------------------- */
-
+/* --- Root Variables (Dark Theme Default) --- */
 :root {
-    /* الألوان الأساسية (الوضع الداكن افتراضياً) */
     --bg-color: #1a1a2e;
     --bg-secondary-color: #2a2a4e;
     --text-color: #e0e0e0;
     --text-color-light: #b0b0d0;
     --border-color: #3a3a5e;
-    
-    /* لون العلامة التجارية */
     --primary-color: #8f94fb;
     --primary-color-gradient: linear-gradient(90deg, #4e54c8, #8f94fb);
-    
-    /* ألوان الحالات (نجاح، خطأ، تحذير) */
+    --shadow-color: rgba(0, 0, 0, 0.2);
+
     --color-correct: #2ecc71;
     --color-correct-bg: rgba(46, 204, 113, 0.1);
     --color-incorrect: #e74c3c;
     --color-incorrect-bg: rgba(231, 76, 60, 0.1);
     --color-pass: #f39c12;
     --color-pass-bg: rgba(243, 156, 18, 0.1);
-    
-    /* الظلال */
-    --shadow-color: rgba(0, 0, 0, 0.2);
 }
 
-/* الوضع النهاري (Light Mode) */
+/* --- Light Theme Variables --- */
 body.light-mode {
     --bg-color: #f4f7f6;
     --bg-secondary-color: #ffffff;
@@ -53,14 +28,7 @@ body.light-mode {
     --shadow-color: rgba(0, 0, 0, 0.05);
 }
 
-/* -------------------------------------------------------------------------- */
-/* 2. Global Layout                                                           */
-/* -------------------------------------------------------------------------- */
-
-* {
-    box-sizing: border-box;
-}
-
+/* --- General Styles --- */
 body {
     font-family: 'Cairo', sans-serif;
     background-color: var(--bg-color);
@@ -72,25 +40,24 @@ body {
     align-items: flex-start;
     min-height: 100vh;
     transition: background-color 0.3s, color 0.3s;
-    direction: rtl; /* اتجاه النص للعربية */
+    direction: rtl;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+/* --- Main Container & Header (index.html) --- */
 .main-container {
     width: 95%;
     max-width: 1200px;
 }
-
-/* -------------------------------------------------------------------------- */
-/* 3. Header & Navigation                                                     */
-/* -------------------------------------------------------------------------- */
 
 .main-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
 }
 
 .logo {
@@ -99,21 +66,40 @@ body {
     margin: 0;
     display: flex; 
     align-items: center;
-    gap: 10px;
 }
-
-.logo svg {
-    height: 40px;
+.logo img {
+    height: 35px;
     width: auto;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));
+    transition: filter 0.3s;
 }
 
+
+.intro {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.intro h2 {
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+}
+.intro p {
+    font-size: 1.2rem;
+    color: var(--text-color-light);
+}
+
+.results-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 2rem 0;
+}
+
+/* --- Theme Toggle Button --- */
 .header-controls {
     display: flex;
     align-items: center;
     gap: 1rem;
 }
-
-/* زر تبديل الثيم */
 .theme-toggle-btn {
     background: var(--bg-secondary-color);
     border: 1px solid var(--border-color);
@@ -129,7 +115,6 @@ body {
 }
 .theme-toggle-btn:hover {
     box-shadow: 0 4px 10px var(--shadow-color);
-    transform: rotate(15deg);
 }
 .theme-toggle-btn svg {
     color: var(--text-color);
@@ -140,74 +125,8 @@ body {
 body.light-mode .theme-toggle-btn .icon-sun { display: block; }
 body.light-mode .theme-toggle-btn .icon-moon { display: none; }
 
-/* زر لوحة التقدم */
-.dashboard-link {
-    background: var(--bg-secondary-color);
-    border: 1px solid var(--border-color);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    font-size: 1.5rem;
-}
-.dashboard-link:hover {
-    box-shadow: 0 4px 10px var(--shadow-color);
-    border-color: var(--primary-color);
-}
 
-/* -------------------------------------------------------------------------- */
-/* 4. Home Page                                                               */
-/* -------------------------------------------------------------------------- */
-
-.intro {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-.intro h2 {
-    font-size: 2.2rem;
-    margin-bottom: 0.5rem;
-}
-.intro p {
-    font-size: 1.2rem;
-    color: var(--text-color-light);
-}
-
-.search-container {
-    margin: 1rem auto 2rem auto;
-    display: flex;
-    justify-content: center;
-    max-width: 600px;
-}
-#search-bar {
-    width: 100%;
-    padding: 1rem 1.5rem;
-    font-size: 1.1rem;
-    font-family: 'Cairo', sans-serif;
-    border-radius: 50px;
-    border: 2px solid var(--border-color);
-    background-color: var(--bg-secondary-color);
-    color: var(--text-color);
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 10px var(--shadow-color);
-}
-#search-bar:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 15px rgba(78, 84, 200, 0.3);
-}
-
-.results-divider {
-    height: 1px;
-    background-color: var(--border-color);
-    margin: 2rem 0;
-}
-
+/* --- Subjects Grid (index.html) --- */
 .subjects-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -229,7 +148,6 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
 .subject-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 20px var(--shadow-color);
-    border-color: var(--primary-color);
 }
 .card-icon {
     font-size: 2.5rem;
@@ -237,18 +155,15 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     color: var(--primary-color);
 }
 .card-icon svg {
-    width: 60px;
-    height: 60px;
+    width: 48px;
+    height: 48px;
     stroke: var(--primary-color);
 }
 .card-title {
     font-size: 1.3rem;
     font-weight: 600;
-    min-height: 3.5em;
+    min-height: 3.5em; /* Ensures title alignment */
     margin: 0 0 1.5rem 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 .card-actions {
     display: flex;
@@ -265,7 +180,6 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     transition: all 0.3s ease;
     border: 2px solid transparent;
     display: block;
-    cursor: pointer;
 }
 .card-btn.btn-quiz {
     background: var(--primary-color-gradient);
@@ -276,50 +190,74 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     box-shadow: 0 5px 15px rgba(143, 148, 251, 0.3);
 }
 .card-btn.btn-summary {
-    background-color: transparent;
+    background-color: var(--bg-secondary-color);
     border: 2px solid var(--primary-color);
     color: var(--primary-color);
 }
 .card-btn.btn-summary:hover {
     background-color: var(--primary-color);
-    color: white;
+    color: var(--bg-secondary-color);
 }
 .card-btn.disabled {
     background: var(--border-color);
     color: var(--text-color-light);
     border-color: var(--border-color);
     cursor: not-allowed;
-    opacity: 0.6;
-    pointer-events: none;
+    opacity: 0.7;
 }
-
-#no-results-message {
-    text-align: center;
-    padding: 2rem;
-    font-size: 1.2rem;
+.card-btn.disabled:hover {
+    transform: none;
+    box-shadow: none;
+    background: var(--border-color);
     color: var(--text-color-light);
 }
 
-/* -------------------------------------------------------------------------- */
-/* 5. Quiz Interface                                                          */
-/* -------------------------------------------------------------------------- */
+/* --- Search Bar Styles --- */
+.search-container {
+    margin: 1rem 0 2rem 0;
+    display: flex;
+    justify-content: center;
+}
+#search-bar {
+    width: 100%;
+    max-width: 500px;
+    padding: 0.9rem 1.2rem;
+    font-size: 1.1rem;
+    font-family: 'Cairo', sans-serif;
+    border-radius: 10px;
+    border: 2px solid var(--border-color);
+    background-color: var(--bg-secondary-color);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px var(--shadow-color);
+}
+#search-bar:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 10px rgba(78, 84, 200, 0.2);
+}
+#no-results-message {
+     padding: 2rem;
+}
 
+
+/* --- Quiz / Summary Container (quiz.html, summary.html) --- */
 .quiz-container {
     background-color: var(--bg-secondary-color);
     border-radius: 15px;
-    box-shadow: 0 10px 30px var(--shadow-color);
+    box-shadow: 0 10px 20px var(--shadow-color);
     width: 100%;
-    max-width: 900px;
+    max-width: none;
     overflow: hidden;
     border: 1px solid var(--border-color);
-    margin: 0 auto;
+    margin: 0;
 }
 
+/* --- Header & Progress --- */
 .quiz-header {
     padding: 2rem;
     border-bottom: 1px solid var(--border-color);
     position: relative;
-    background-color: rgba(0,0,0,0.1);
 }
 .quiz-header h2 {
     margin: 0;
@@ -331,16 +269,15 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     width: 100%;
     background-color: var(--bg-color);
     border-radius: 5px;
-    height: 8px;
-    margin-top: 1.5rem;
-    overflow: hidden;
+    height: 10px;
+    margin-top: 1rem;
 }
 .progress-bar {
     height: 100%;
     width: 0%;
     background: var(--primary-color-gradient);
     border-radius: 5px;
-    transition: width 0.5s ease;
+    transition: width 0.4s ease;
 }
 .question-counter {
     text-align: center;
@@ -348,7 +285,7 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     font-size: 0.9rem;
     color: var(--text-color-light);
 }
-.home-link {
+.quiz-header .home-link {
     position: absolute;
     top: 1.5rem;
     right: 1.5rem;
@@ -357,10 +294,11 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     text-decoration: none;
     transition: color 0.3s;
 }
-.home-link:hover {
+.quiz-header .home-link:hover {
     color: var(--primary-color);
 }
 
+/* --- Body (Quiz Options) --- */
 .quiz-body {
     padding: 2.5rem;
 }
@@ -370,7 +308,7 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     text-align: center;
     line-height: 1.6;
     margin-bottom: 2.5rem;
-    min-height: 80px;
+    min-height: 100px;
 }
 .options-container {
     display: flex;
@@ -382,12 +320,12 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     background-color: var(--bg-color);
     border: 2px solid var(--border-color);
     color: var(--text-color);
-    padding: 1.2rem;
-    font-size: 1.1rem;
+    padding: 1rem;
+    font-size: 1.2rem;
     font-family: 'Cairo', sans-serif;
     border-radius: 10px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -396,53 +334,83 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
 .option-btn:not(:disabled):hover {
     background-color: var(--bg-secondary-color);
     border-color: var(--primary-color);
-    transform: translateX(-5px);
 }
 .option-btn:disabled {
-    cursor: default;
-    opacity: 0.8;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+.option-btn .icon {
+    font-size: 1.5rem;
+    font-weight: bold;
 }
 .option-btn.correct {
     background-color: var(--color-correct-bg);
     border-color: var(--color-correct);
     color: var(--color-correct);
 }
-.option-btn.correct .icon::before { content: '✓'; font-weight: bold; }
+.option-btn.correct .icon::before { content: '✓'; }
 .option-btn.incorrect {
     background-color: var(--color-incorrect-bg);
     border-color: var(--color-incorrect);
     color: var(--color-incorrect);
 }
-.option-btn.incorrect .icon::before { content: '✗'; font-weight: bold; }
+.option-btn.incorrect .icon::before { content: '✗'; }
 
 .feedback {
     text-align: center;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    margin-top: 2rem;
-    min-height: 30px;
+    margin-top: 1.5rem;
+    height: 30px;
 }
 .feedback.correct { color: var(--color-correct); }
 .feedback.incorrect { color: var(--color-incorrect); }
 
+
+/* --- Body (Summary Content) --- */
+.summary-content-container {
+    padding: 2.5rem;
+    line-height: 1.8;
+    font-size: 1.1rem;
+}
+.summary-content-container h3 {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 2rem;
+}
+.summary-content-container p {
+    margin-bottom: 1rem;
+}
+.summary-content-container ul {
+    padding-right: 20px;
+}
+.summary-content-container .placeholder {
+    font-size: 1.2rem;
+    text-align: center;
+    color: var(--text-color-light);
+    padding: 3rem 0;
+}
+
+/* --- Footer (Quiz) --- */
 .quiz-footer {
     padding: 2rem;
-    background-color: rgba(0,0,0,0.1);
+    background-color: var(--bg-color);
+    text-align: left;
     border-top: 1px solid var(--border-color);
 }
 .next-btn {
     background: var(--primary-color-gradient);
     border: none;
     color: white;
-    padding: 1rem 3rem;
+    padding: 0.8rem 2rem;
     font-size: 1.1rem;
     font-family: 'Cairo', sans-serif;
     font-weight: 600;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
-    display: block;
-    margin-right: auto; /* محاذاة لليسار */
 }
 .next-btn:disabled {
     background: var(--border-color);
@@ -455,341 +423,72 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     transform: translateY(-2px);
 }
 
-
-/* -------------------------------------------------------------------------- */
-/* 6. Results & Charts                                                        */
-/* -------------------------------------------------------------------------- */
-
+/* --- Results Screen --- */
 .results-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 3rem 2rem;
+    padding: 2.5rem 2rem;
     text-align: center;
 }
 .results-chart { 
-    width: 200px; 
-    height: 200px; 
+    width: 180px; 
+    height: 180px; 
     border-radius: 50%; 
-    background: conic-gradient(var(--percentage-color, #8f94fb) var(--percentage-value, 0deg), var(--bg-color) 0deg); 
+    background: conic-gradient( var(--percentage-color, #8f94fb) var(--percentage-value, 0deg),  var(--bg-color) 0deg ); 
     display: flex; 
     align-items: center; 
     justify-content: center; 
     position: relative; 
-    margin-bottom: 2rem; 
-    box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    margin-bottom: 1.5rem; 
+    transition: background 0.5s ease; 
 }
 .results-chart::before { 
     content: ''; 
     position: absolute; 
-    width: 160px; 
-    height: 160px; 
+    width: 140px; 
+    height: 140px; 
     background: var(--bg-secondary-color); 
     border-radius: 50%; 
 }
 .percentage-text { 
-    font-size: 3rem; 
-    font-weight: 800; 
+    font-size: 2.5rem; 
+    font-weight: 700; 
     color: var(--text-color); 
     z-index: 2; 
 }
-.results-explanation {
-    font-size: 1.1rem;
-    color: var(--text-color-light);
-    margin-bottom: 2rem;
+.results-feedback-text { 
+    font-size: 1.5rem; 
+    font-weight: 600; 
+    margin-top: 0; 
+    margin-bottom: 0.5rem; 
+    transition: color 0.5s ease; 
 }
-.level-excellent { --percentage-color: #2ecc71; }
-.level-good { --percentage-color: #3498db; }
-.level-pass { --percentage-color: #f39c12; }
-.level-fail { --percentage-color: #e74c3c; }
+.results-score-text { 
+    font-size: 1.1rem; 
+    color: var(--text-color-light); 
+    margin-top: 0; 
+    margin-bottom: 2rem; 
+}
+.level-excellent { --percentage-color: #2ecc71; color: #2ecc71; }
+.level-good { --percentage-color: #3498db; color: #3498db; }
+.level-pass { --percentage-color: #f39c12; color: #f39c12; }
+.level-fail { --percentage-color: #e74c3c; color: #e74c3c; }
 
-.results-actions {
+.results-summary-grid {
     display: flex;
+    justify-content: space-around;
+    width: 100%;
     gap: 1rem;
-    justify-content: center;
-    width: 100%;
-    flex-wrap: wrap;
-}
-.back-home {
-    background-color: var(--bg-color);
-    border: 2px solid var(--primary-color);
-    color: var(--primary-color);
-    padding: 0.8rem 2rem;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s;
-}
-.back-home:hover {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* 7. Summary Interface                                                       */
-/* -------------------------------------------------------------------------- */
-
-.summary-tabs {
-    display: flex;
-    background-color: rgba(0,0,0,0.1);
-    border-bottom: 1px solid var(--border-color);
-}
-.tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text-color-light);
-    padding: 1.2rem;
-    font-size: 1.1rem;
-    font-family: 'Cairo', sans-serif;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-bottom: 3px solid transparent;
-}
-.tab-btn:hover {
-    background-color: rgba(255,255,255,0.05);
-    color: var(--text-color);
-}
-.tab-btn.active {
-    color: var(--primary-color);
-    border-bottom: 3px solid var(--primary-color);
-    background-color: rgba(143, 148, 251, 0.1);
-}
-
-.summary-content-container {
-    padding: 2rem;
-}
-
-.file-download-list {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}
-.file-download-item { margin-bottom: 1rem; }
-.file-download-link {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.2rem;
-    background-color: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    text-decoration: none;
-    color: var(--text-color);
-    transition: all 0.3s ease;
-}
-.file-download-link:hover {
-    border-color: var(--primary-color);
-    transform: translateX(-5px);
-}
-.file-download-icon { font-size: 2rem; }
-.file-download-name { font-size: 1.1rem; font-weight: 600; }
-
-.gallery-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 1.5rem;
-}
-.gallery-item {
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-.gallery-item:hover {
-    transform: scale(1.03);
-    box-shadow: 0 10px 20px var(--shadow-color);
-    border-color: var(--primary-color);
-}
-.gallery-item img {
-    width: 100%;
-    height: 220px;
-    object-fit: cover;
-    display: block;
-}
-.gallery-item p {
-    padding: 0.8rem;
-    margin: 0;
-    text-align: center;
-    background-color: var(--bg-color);
-    font-size: 0.9rem;
-    color: var(--text-color-light);
-}
-
-/* Lightbox */
-.lightbox-modal {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.95);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 2000;
-    opacity: 0; visibility: hidden; transition: 0.3s;
-    backdrop-filter: blur(5px);
-}
-.lightbox-modal.show { opacity: 1; visibility: visible; }
-.lightbox-content { 
-    max-width: 90%; 
-    max-height: 90%; 
-    border-radius: 5px;
-    box-shadow: 0 0 30px rgba(0,0,0,0.5);
-}
-.lightbox-close {
-    position: absolute; top: 20px; right: 30px;
-    color: white; font-size: 3rem; cursor: pointer;
-    transition: transform 0.3s;
-}
-.lightbox-close:hover { transform: rotate(90deg); color: var(--primary-color); }
-
-
-/* -------------------------------------------------------------------------- */
-/* 8. Admin Panel & Tables                                                    */
-/* -------------------------------------------------------------------------- */
-
-.admin-section-title {
-    font-size: 1.4rem;
-    color: var(--primary-color);
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 0.8rem;
-    margin-top: 2.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.admin-table-container {
-    overflow-x: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    background-color: var(--bg-color);
-}
-
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: right;
-    min-width: 700px;
-}
-
-.admin-table th, .admin-table td {
-    padding: 1.2rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.admin-table th {
-    background-color: var(--bg-secondary-color);
-    font-size: 1rem;
-    color: var(--text-color);
-    position: sticky;
-    top: 0;
-    font-weight: 700;
-}
-
-.admin-table tbody tr {
-    transition: background 0.2s;
-}
-.admin-table tbody tr:hover {
-    background-color: rgba(143, 148, 251, 0.05);
-}
-
-.clickable-student {
-    cursor: pointer;
-    color: var(--primary-color);
-    font-weight: bold;
-    text-decoration: underline;
-}
-
-/* أزرار الإجراءات (Action Buttons) */
-.admin-action-btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    font-family: 'Cairo', sans-serif;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    color: white;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-}
-
-.block-btn {
-    background-color: var(--color-incorrect); /* أحمر للحظر */
-}
-.block-btn:hover { background-color: #c0392b; }
-
-.unblock-btn {
-    background-color: var(--color-correct); /* أخضر للإلغاء */
-}
-.unblock-btn:hover { background-color: #27ae60; }
-
-.block-fp-btn {
-    background-color: #3498db; /* أزرق للبصمة */
-}
-.block-fp-btn:hover { background-color: #2980b9; }
-
-/* المودال الخاص بالإدارة */
-.admin-modal {
-    display: none;
-    position: fixed;
-    z-index: 1001;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(3px);
-    overflow-y: auto;
-}
-
-.admin-modal-content {
-    background-color: var(--bg-secondary-color);
-    margin: 5% auto;
-    padding: 2.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 15px;
-    width: 90%;
-    max-width: 900px;
-    position: relative;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
-
-.admin-modal-close {
-    color: var(--text-color-light);
-    position: absolute;
-    top: 15px;
-    right: 25px;
-    font-size: 2rem;
-    font-weight: bold;
-    cursor: pointer;
-}
-.admin-modal-close:hover { color: var(--primary-color); }
-
-
-/* -------------------------------------------------------------------------- */
-/* 9. Dashboard & Stats                                                       */
-/* -------------------------------------------------------------------------- */
-
-.dashboard-summary-grid {
-    display: flex;
-    gap: 1.5rem;
-    justify-content: center;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
+    margin: 1.5rem 0;
 }
 .summary-box {
-    background: var(--bg-color);
+    background-color: var(--bg-color);
+    padding: 1rem;
+    border-radius: 10px;
+    width: 45%;
     border: 1px solid var(--border-color);
-    padding: 1.5rem;
-    border-radius: 12px;
-    flex: 1;
-    min-width: 150px;
-    text-align: center;
-    box-shadow: 0 4px 10px var(--shadow-color);
 }
 .summary-box-label {
     font-size: 1rem;
@@ -800,33 +499,533 @@ body.light-mode .theme-toggle-btn .icon-moon { display: none; }
     font-size: 2rem;
     font-weight: 700;
     margin: 0;
+}
+.summary-box-value.correct { color: var(--color-correct); }
+.summary-box-value.incorrect { color: var(--color-incorrect); }
+
+.analysis-section {
+    width: 100%;
+    text-align: right;
+    margin-bottom: 1.5rem;
+}
+.analysis-section h4 {
+    font-size: 1.2rem;
+    color: var(--text-color);
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 0.5rem;
+}
+.difficulty-analysis ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+}
+.difficulty-analysis li {
+    font-size: 1.1rem;
+    color: var(--text-color-light);
+    margin-bottom: 0.5rem;
+}
+.difficulty-analysis li span {
+    font-weight: 700;
+    color: var(--color-incorrect);
+}
+.advice-box {
+    background-color: var(--color-pass-bg);
+    border: 1px solid var(--color-pass);
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    color: var(--color-pass);
+    line-height: 1.6;
+}
+.advice-box strong {
+    color: var(--text-color);
+}
+.error-list {
+    width: 100%;
+    text-align: right;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.error-list details {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.error-list summary {
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 1rem;
+    cursor: pointer;
+    background-color: var(--bg-color);
+}
+.error-list-content {
+    background-color: var(--bg-secondary-color);
+    padding: 1rem;
+}
+.error-list ul {
+    padding-right: 20px;
+    margin: 0;
+}
+.error-list li {
+    font-size: 1rem;
+    color: var(--text-color-light);
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+
+/* --- Dashboard Specific Styles --- */
+.dashboard-body {
+    padding: 2.5rem;
+}
+
+.dashboard-link {
+    background: var(--bg-secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+.dashboard-link:hover {
+    box-shadow: 0 4px 10px var(--shadow-color);
+    border-color: var(--primary-color);
+}
+.dashboard-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.subject-history-card {
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    box-shadow: 0 5px 10px var(--shadow-color);
+}
+.subject-history-card h3 {
+    font-size: 1.3rem;
+    padding: 1rem 1.5rem;
+    margin: 0;
+    background-color: var(--bg-secondary-color);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--primary-color);
+}
+.history-list {
+    list-style-type: none;
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 0;
+    border-bottom: 1px dashed var(--border-color);
+    font-size: 1.1rem;
+}
+.history-item:last-child {
+    border-bottom: none;
+}
+.history-item .score {
+    font-weight: 700;
+}
+.history-item .score.level-excellent { color: var(--color-correct); }
+.history-item .score.level-good { color: #3498db; }
+.history-item .score.level-pass { color: var(--color-pass); }
+.history-item .score.level-fail { color: var(--color-incorrect); }
+.history-item .history-date {
+    font-size: 0.9rem;
+    color: var(--text-color-light);
+}
+.dashboard-empty-state {
+    text-align: center;
+    padding: 3rem;
+    font-size: 1.2rem;
+    color: var(--text-color-light);
+}
+.clear-progress-btn {
+    background: var(--color-incorrect-bg);
+    border: 1px solid var(--color-incorrect);
+    color: var(--color-incorrect);
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1.5rem;
+    float: left; 
+}
+.clear-progress-btn:hover {
+    background: var(--color-incorrect);
+    color: white;
+}
+.results-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+.back-home {
+    background-color: var(--bg-secondary-color);
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+    padding: 0.8rem 1.5rem;
+}
+.back-home:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-secondary-color);
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    .logo { font-size: 1.5rem; }
+    .intro h2 { font-size: 1.8rem; }
+    .intro p { font-size: 1rem; }
+    
+    .quiz-container {
+        width: 100%;
+        margin-top: 0;
+    }
+    .quiz-body, .quiz-footer, .results-container, .dashboard-body {
+        padding: 1.5rem;
+    }
+    .quiz-header { padding: 1.5rem; }
+    #question-text { font-size: 1.3rem; min-height: 80px; }
+    .option-btn { font-size: 1.1rem; padding: 0.9rem; }
+    .summary-box-value { font-size: 1.5rem; }
+    .results-chart { width: 150px; height: 150px; }
+    .results-chart::before { width: 120px; height: 120px; }
+    .percentage-text { font-size: 2rem; }
+}
+
+/* --- كود تنسيق شرح النتائج --- */
+.results-explanation {
+    font-size: 0.95rem;
+    color: var(--text-color-light);
+    margin-top: -10px;
+    margin-bottom: 15px;
+    padding: 0 1rem;
+    line-height: 1.5;
+}
+
+.results-explanation strong {
     color: var(--text-color);
 }
 
-/* -------------------------------------------------------------------------- */
-/* 10. Responsive Design                                                      */
-/* -------------------------------------------------------------------------- */
+/* --- تنسيق أزرار تبويب الملخص --- */
+.summary-tabs {
+    display: flex;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+}
+.tab-btn {
+    flex: 1; /* يأخذ نصف المساحة */
+    background: none;
+    border: none;
+    color: var(--text-color-light);
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+}
+.tab-btn:hover {
+    color: var(--text-color);
+}
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom: 3px solid var(--primary-color);
+}
 
-@media (max-width: 768px) {
-    body { padding: 10px; }
-    .main-container { width: 100%; }
-    
-    .logo { font-size: 1.5rem; }
-    .logo svg { height: 30px; }
-    
-    .quiz-header, .quiz-body, .quiz-footer { padding: 1.5rem; }
-    .intro h2 { font-size: 1.8rem; }
-    
-    .results-summary-grid, .dashboard-summary-grid {
-        flex-direction: column;
-    }
-    .summary-box { width: 100%; }
-    
-    .admin-table th, .admin-table td { padding: 0.8rem; font-size: 0.9rem; }
-    .admin-action-btn { width: 100%; margin-bottom: 5px; }
-    
-    /* تحسين عرض الجدول على الموبايل */
-    .admin-table-container {
-        -webkit-overflow-scrolling: touch;
-    }
+/* --- (جديد v1.6) تنسيق معرض الصور (Lightbox) --- */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+.gallery-item {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.gallery-item:hover {
+    box-shadow: 0 5px 15px var(--shadow-color);
+    transform: translateY(-3px);
+}
+.gallery-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover; 
+    display: block;
+}
+.gallery-item p {
+    font-size: 1rem;
+    color: var(--text-color-light);
+    text-align: center;
+    padding: 0.75rem 1rem;
+    margin: 0;
+    background-color: var(--bg-color);
+}
+
+/* (جديد v1.6) جعل الصور داخل النص قابلة للضغط */
+.summary-content-container img {
+    cursor: pointer;
+    max-width: 100%; /* ضمان عدم تجاوز العرض */
+    height: auto; /* الحفاظ على النسبة */
+    border-radius: 10px; /* (تحسين) إضافة استدارة للصور في النص */
+    transition: opacity 0.3s ease;
+}
+.summary-content-container img:hover {
+    opacity: 0.8;
+}
+
+
+/* نافذة عرض الصورة (Modal) */
+.lightbox-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.lightbox-modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+.lightbox-content {
+    max-width: 90%;
+    max-height: 85%;
+    display: block;
+    object-fit: contain;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: white;
+    font-size: 3rem;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
+.lightbox-close:hover {
+    color: var(--text-color-light);
+}
+/* --- نهاية الكود الجديد --- */
+
+/* --- (جديد) تنسيق روابط تحميل الملفات --- */
+.file-download-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+.file-download-item {
+    margin-bottom: 1rem;
+}
+.file-download-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+.file-download-link:hover {
+    border-color: var(--primary-color);
+    background-color: var(--bg-secondary-color);
+    color: var(--primary-color);
+}
+.file-download-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+.file-download-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+/* --- نهاية الكود الجديد --- */
+
+/* --- (جديد v1.8) تنسيقات لوحة التحكم (Admin) --- */
+.admin-section-title {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: right;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table th {
+    background-color: var(--bg-color);
+    font-size: 1rem;
+    color: var(--text-color-light);
+    position: sticky; /* لتثبيت رأس الجدول عند التمرير */
+    top: 0;
+}
+
+.admin-table tbody tr:nth-child(even) {
+    background-color: var(--bg-color);
+}
+
+.admin-table tbody tr:hover {
+    background-color: var(--bg-secondary-color);
+}
+
+.admin-table td {
+    font-size: 1.1rem;
+}
+
+.admin-table td:first-child {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+/* --- (جديد v1.9) تنسيقات نافذة تفاصيل الطالب --- */
+.admin-table .clickable-student {
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--primary-color);
+    transition: color 0.2s ease;
+}
+.admin-table .clickable-student:hover {
+    color: var(--text-color);
+}
+
+.admin-modal {
+    display: none; /* مخفي افتراضياً */
+    position: fixed;
+    z-index: 1001; /* فوق كل شيء */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding-top: 50px;
+}
+
+.admin-modal-content {
+    background-color: var(--bg-secondary-color);
+    margin: 5% auto;
+    padding: 2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    width: 90%;
+    max-width: 800px;
+    position: relative;
+}
+
+.admin-modal-close {
+    color: var(--text-color-light);
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    font-size: 2.5rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+.admin-modal-close:hover {
+    color: var(--primary-color);
+}
+
+.admin-modal-content h3 {
+     color: var(--primary-color);
+     font-size: 1.8rem;
+     margin-top: 0;
+}
+.admin-modal-content h4 {
+    font-size: 1.3rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+/* (إعادة استخدام التنسيق من لوحة التقدم) */
+.admin-modal-content .dashboard-summary-grid {
+     margin-bottom: 0;
+}
+.admin-modal-content .admin-table-container {
+    max-height: 250px; /* ارتفاع أصغر للنافذة */
+}
+
+/* --- (جديد v1.9.1) تنسيقات أزرار الحظر --- */
+.admin-action-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.9rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+}
+.admin-action-btn.block-btn {
+    background-color: var(--color-incorrect);
+}
+.admin-action-btn.block-btn:hover {
+    opacity: 0.8;
+}
+.admin-action-btn.unblock-btn {
+    background-color: var(--color-correct);
+}
+.admin-action-btn.unblock-btn:hover {
+    opacity: 0.8;
+}
+/* (*** جديد: لون زر حظر البصمة ***) */
+.admin-action-btn.block-fp-btn {
+    background-color: #3498db; /* لون أزرق */
+}
+.admin-action-btn.block-fp-btn:hover {
+    opacity: 0.8;
 }
